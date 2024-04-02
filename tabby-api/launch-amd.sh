@@ -2,14 +2,14 @@
 
 volume="${HOME}/hf_models"
 
-docker run --gpus all --shm-size 1g \
-  --group-add=video \
+sudo docker run -it --shm-size 1g \
+  --device=/dev/kfd \
+  --device=/dev/dri \
   --ipc=host \
   --cap-add=SYS_PTRACE \
   --security-opt seccomp=unconfined \
-  --device /dev/kfd \
-  --device /dev/dri \
+  --group-add video \
   -p 8091:8091 \
   -v $volume:/data \
-  solidrust/tabby-api
-
+  solidrust/tabby-api \
+  
