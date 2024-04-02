@@ -51,7 +51,7 @@ COPY config.yml        /tabbyAPI
 COPY api_tokens.yml    /tabbyAPI
 
 # Make port 80 available to the world outside this container
-EXPOSE 8091
+EXPOSE 5000
 
 # Run main.py when the container launches
 CMD ["python", "main.py"]
