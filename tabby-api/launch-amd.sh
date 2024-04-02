@@ -9,7 +9,7 @@ sudo docker run -it --shm-size 1g \
   --cap-add=SYS_PTRACE \
   --security-opt seccomp=unconfined \
   --group-add video \
-  -p 8091:8091 \
+  -p 8091:5000 \
   -v $volume:/hf_models \
   -v ./config.yml:/tabbyAPI/config.yml \
   -v ./api_tokens.yml:/tabbyAPI/api_tokens.yml \
