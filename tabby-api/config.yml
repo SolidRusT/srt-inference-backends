@@ -12,7 +12,7 @@ network:
   host: 0.0.0.0
 
   # The port to host on (default: 5000)
-  port: 8091
+  port: 5000
 
   # Disable HTTP token authenticaion with requests
   # WARNING: This will make your instance vulnerable!
