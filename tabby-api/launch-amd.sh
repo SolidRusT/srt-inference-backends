@@ -10,6 +10,6 @@ sudo docker run -it --shm-size 1g \
   --security-opt seccomp=unconfined \
   --group-add video \
   -p 8091:8091 \
-  -v $volume:/data \
+  -v $volume:/hf_models \
   solidrust/tabby-api \
   
