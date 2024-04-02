@@ -1,0 +1,27 @@
+[Unit]
+Description=Tabby API Service
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=shaun
+Group=shaun
+# Environment variables can be set here
+Environment="VOLUME=${HOME}/hf_models"
+ExecStartPre=/bin/bash -c 'mkdir -p ${VOLUME}'
+ExecStart=/usr/bin/docker run -it --rm --shm-size 1g \
+  --device=/dev/kfd \
+  --device=/dev/dri \
+  --ipc=host \
+  --cap-add=SYS_PTRACE \
+  --security-opt seccomp=unconfined \
+  --group-add video \
+  -p 8091:8091 \
+  -v ${VOLUME}:/hf_models \
+  solidrust/tabby-api
+ExecStop=/usr/bin/docker stop solidrust/tabby-api
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
