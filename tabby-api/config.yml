@@ -54,7 +54,7 @@ developer:
 model:
   # Overrides the directory to look for models (default: models)
   # Windows users, DO NOT put this path in quotes! This directory will be invalid otherwise.
-  model_dir: /home/shaun/hf_models
+  model_dir: /hf_models
 
   # An initial model to load. Make sure the model is located in the model directory!
   # A model can be loaded later via the API.
