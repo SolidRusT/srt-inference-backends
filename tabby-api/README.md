@@ -24,7 +24,9 @@ sudo docker run -it --shm-size 1g \
   --group-add video \
   -p 8091:8091 \
   -v $volume:/hf_models \
-  solidrust/tabby-api \
+  -v ./config.yml:/tabbyAPI/config.yml \
+  -v ./api_tokens.yml:/tabbyAPI/api_tokens.yml \
+  solidrust/tabby-api
 ```
 
 ## NVIDIA CUDA 12.x
