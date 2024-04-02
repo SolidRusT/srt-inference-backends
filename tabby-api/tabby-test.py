@@ -1,4 +1,3 @@
-#from openai import OpenAI
 import requests
 from typing import List
 
