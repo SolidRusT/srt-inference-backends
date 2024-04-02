@@ -1,6 +1,8 @@
 # sudo docker run -it --device=/dev/kfd --device=/dev/dri --security-opt seccomp=unconfined --group-add video <image_name>:<version_tag>
 FROM rocm/dev-ubuntu-22.04:6.0.2-complete
 
+WORKDIR /
+
 RUN apt update && apt dist-upgrade -y
 RUN apt update && apt-get install -y --no-install-recommends \
     python-is-python3 \
@@ -24,21 +26,25 @@ RUN pip install --no-cache-dir \
     "torch-2.4.0.dev20240401+rocm6.0-cp311-cp311-linux_x86_64.whl" \
     "pytorch_triton_rocm-3.0.0+0a22a91d04-cp311-cp311-linux_x86_64.whl"
 
-WORKDIR /
+RUN rm -rf torch-2.4.0.dev20240401+rocm6.0-cp311-cp311-linux_x86_64.whl pytorch_triton_rocm-3.0.0+0a22a91d04-cp311-cp311-linux_x86_64.whl
 
 RUN git clone https://github.com/turboderp/exllamav2.git
 
 WORKDIR /exllamav2
 
+RUN rm -rf .git
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir .
 
 WORKDIR /
 
+RUN rm -rf /exllamav2
+
 RUN git clone https://github.com/theroyallab/tabbyAPI.git
 
 WORKDIR /tabbyAPI
 
+RUN rm -rf .git
 RUN pip install --no-cache-dir \
     loguru \
     pydantic \
