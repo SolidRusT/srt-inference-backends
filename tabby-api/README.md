@@ -1,6 +1,6 @@
 # tabbyAPI
 
-API servcie to run fp16 and exl2 models.
+API service to run fp16 and exl2 models. See more on the [tabbyAPI Official Site](https://github.com/theroyallab/tabbyAPI).
 
 ## AMD ROCm 6.x
 
