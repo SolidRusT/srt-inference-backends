@@ -1,4 +1,5 @@
 #import os
+import asyncio
 from openai import AsyncOpenAI
 
 client = AsyncOpenAI(
