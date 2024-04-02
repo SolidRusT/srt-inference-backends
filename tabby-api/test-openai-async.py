@@ -6,7 +6,7 @@ client = AsyncOpenAI(
     # This is the default and can be omitted
     #api_key=os.environ.get("OPENAI_API_KEY"),
     api_key = "sk-not-required",
-    base_url = "http://hades:8091/v1/",
+    base_url = "http://hades:5000/v1/",
     default_headers = {"x-foo": "true"},
 )
 
