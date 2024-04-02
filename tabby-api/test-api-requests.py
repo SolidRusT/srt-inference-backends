@@ -2,7 +2,7 @@ import requests
 from typing import List
 
 # Configuration parameters
-OPENAI_API_KEY = 'sk-OSxxxxx'
+OPENAI_API_KEY = 'sk-not-required'
 MODEL = 'not-required'
 ENDPOINT_URL = 'http://hades:8091/v1/completions'  # Endpoint URL
 HEADERS = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
