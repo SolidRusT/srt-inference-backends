@@ -1,5 +1,4 @@
-import os
-import asyncio
+#import os
 from openai import AsyncOpenAI
 
 client = AsyncOpenAI(
@@ -10,16 +9,14 @@ client = AsyncOpenAI(
     default_headers = {"x-foo": "true"},
 )
 
-async def main() -> None:
-    chat_completion = await client.chat.completions.create(
-        messages=[
-            {
-                "role": "user",
-                "content": "Say this is a test",
-            }
-        ],
+async def main():
+    stream = await client.chat.completions.create(
         model="not-required",
+        messages=[{"role": "user", "content": "Say this is a test"}],
+        stream=True,
     )
+    async for chunk in stream:
+        print(chunk.choices[0].delta.content or "", end="")
 
 
 asyncio.run(main())
