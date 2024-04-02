@@ -17,7 +17,7 @@ ExecStart=/usr/bin/docker run -it --rm --shm-size 1g \
   --cap-add=SYS_PTRACE \
   --security-opt seccomp=unconfined \
   --group-add video \
-  -p 8091:8091 \
+  -p 5000:5000 \
   -v ${VOLUME}:/hf_models \
   solidrust/tabby-api
 ExecStop=/usr/bin/docker stop solidrust/tabby-api
