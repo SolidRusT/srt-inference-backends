@@ -1,0 +1,58 @@
+# sudo docker run -it --device=/dev/kfd --device=/dev/dri --security-opt seccomp=unconfined --group-add video rocm/dev-ubuntu-22.04:6.0.2-complete
+FROM rocm/dev-ubuntu-22.04:6.0.2-complete
+
+#ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt update && apt dist-upgrade -y
+RUN apt update && apt-get install -y --no-install-recommends \
+    python-is-python3 \
+    python3.11 \
+    python3.11-dev \
+    wget \
+    build-essential \
+    curl \
+    ca-certificates \
+    git && rm -rf /var/lib/apt/lists/*
+
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 110
+
+RUN wget https://download.pytorch.org/whl/nightly/rocm6.0/torch-2.4.0.dev20240401%2Brocm6.0-cp311-cp311-linux_x86_64.whl
+RUN wget https://download.pytorch.org/whl/nightly/pytorch_triton_rocm-3.0.0%2B0a22a91d04-cp311-cp311-linux_x86_64.whl
+
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir \
+    packages \
+    wheel \
+    "torch-2.4.0.dev20240401+rocm6.0-cp311-cp311-linux_x86_64.whl" \
+    "pytorch_triton_rocm-3.0.0+0a22a91d04-cp311-cp311-linux_x86_64.whl"
+
+WORKDIR /
+
+RUN git clone https://github.com/turboderp/exllamav2.git
+
+WORKDIR /exllamav2
+
+pip install --no-cache-dir -r requirements.txt
+pip install --no-cache-dir .
+
+WORKDIR /
+
+git clone https://github.com/theroyallab/tabbyAPI.git
+
+WORKDIR /tabbyAPI
+
+RUN pip install --no-cache-dir \
+    loguru \
+    pydantic \
+    fastapi \
+    rich \
+    uvicorn \
+    sse_starlette
+
+COPY config.yml /tabbyAPI
+
+# Make port 80 available to the world outside this container
+EXPOSE 8091
+
+# Run main.py when the container launches
+CMD ["python", "main.py"]

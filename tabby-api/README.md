@@ -23,7 +23,7 @@ python main.py
 
 ```bash
 git clone https://github.com/theroyallab/tabbyAPI
-docker build -t solidrust/tabby-api .
+docker build -f Dockerfile-amd -t solidrust/tabby-api .
 ```
 
 ```bash
