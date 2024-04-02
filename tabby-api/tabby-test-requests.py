@@ -3,7 +3,7 @@ from typing import List
 
 # Configuration parameters
 OPENAI_API_KEY = 'sk-OSxxxxx'
-MODEL = 'gpt-3.5-turbo'  # Specify the OpenAI model to use
+MODEL = 'not-required'
 ENDPOINT_URL = 'http://hades:8091/v1/completions'  # Endpoint URL
 HEADERS = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
 MAX_TOKENS = 2048  # Maximum number of tokens to generate in each completion
