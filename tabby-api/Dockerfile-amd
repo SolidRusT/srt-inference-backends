@@ -49,7 +49,8 @@ RUN pip install --no-cache-dir \
     uvicorn \
     sse_starlette
 
-COPY config.yml /tabbyAPI
+COPY config.yml        /tabbyAPI
+COPY api_tokens.yml    /tabbyAPI
 
 # Make port 80 available to the world outside this container
 EXPOSE 8091
