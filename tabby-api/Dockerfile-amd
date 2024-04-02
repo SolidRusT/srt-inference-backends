@@ -1,8 +1,6 @@
 # sudo docker run -it --device=/dev/kfd --device=/dev/dri --security-opt seccomp=unconfined --group-add video <image_name>:<version_tag>
 FROM rocm/dev-ubuntu-22.04:6.0.2-complete
 
-#ENV DEBIAN_FRONTEND=noninteractive
-
 RUN apt update && apt dist-upgrade -y
 RUN apt update && apt-get install -y --no-install-recommends \
     python-is-python3 \
