@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     python3.11 \
     python3-pip \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python and pip
