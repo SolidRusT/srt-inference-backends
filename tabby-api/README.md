@@ -6,6 +6,14 @@ API service to run fp16 and exl2 models. See more on the [tabbyAPI Official Site
 
 ### Run with Docker
 
+For CUDA:
+
+```bash
+docker build -f Dockerfile-nvidia -t solidrust/tabby-api .
+```
+
+For ROCm:
+
 ```bash
 docker build -f Dockerfile-amd -t solidrust/tabby-api .
 ```
