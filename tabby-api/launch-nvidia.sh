@@ -1,5 +1,4 @@
 #!/bin/bash
-
 volume="${HOME}/hf_models"
 
 docker run --gpus all --shm-size 1g \
