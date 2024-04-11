@@ -1,4 +1,6 @@
 #!/bin/bash
+# pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/rocm6.0
+
 wget https://download.pytorch.org/whl/nightly/rocm6.0/torch-2.4.0.dev20240410%2Brocm6.0-cp311-cp311-linux_x86_64.whl
 wget https://download.pytorch.org/whl/nightly/pytorch_triton_rocm-3.0.0%2B0a22a91d04-cp311-cp311-linux_x86_64.whl
 wget https://download.pytorch.org/whl/nightly/rocm6.0/torchvision-0.19.0.dev20240410%2Brocm6.0-cp311-cp311-linux_x86_64.whl
