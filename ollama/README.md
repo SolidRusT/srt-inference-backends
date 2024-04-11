@@ -23,8 +23,7 @@ ollama run Vicuna33
 
 Control the parameters and system prompt.
 
-```
-Dockerfile
+```Dockerfile
 FROM llama2
 
 # set the temperature to 1 [higher is more creative, lower is more coherent]
