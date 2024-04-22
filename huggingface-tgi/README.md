@@ -26,3 +26,26 @@ Using the image:
 ```bash
 docker pull 078744956360.dkr.ecr.us-west-2.amazonaws.com/solidrust/solidrust-tgi:latest
 ```
+
+Curl inference example:
+
+```bash
+curl erebus:8081/v1/chat/completions \
+    -X POST \
+    -d '{
+  "model": "solidrust/dolphin-2.9-llama3-8b-AWQ",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "What is deep learning?"
+    }
+  ],
+  "stream": false,
+  "max_tokens": 100
+}' \
+    -H 'Content-Type: application/json'
+```
