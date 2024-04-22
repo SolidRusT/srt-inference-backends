@@ -30,6 +30,7 @@ docker pull 078744956360.dkr.ecr.us-west-2.amazonaws.com/solidrust/solidrust-tgi
 Curl inference example:
 
 ```bash
+# https://huggingface.co/docs/text-generation-inference/main/en/messages_api
 curl erebus:8081/v1/chat/completions \
     -X POST \
     -d '{
