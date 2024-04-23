@@ -10,7 +10,7 @@ export PATH=$PATH:/usr/local/cuda/bin
 export CUDA_HOME="/usr/local/cuda"
 export CUDA_PATH="/usr/local/cuda"
 export LD_LIBRARY_PATH="/usr/local/cuda"
-# checkout llama.cpp repo
+# checkout llama.cpp repo https://github.com/ggerganov/llama.cpp
 make clean
 make LLAMA_CUDA=1
 
