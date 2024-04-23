@@ -14,6 +14,10 @@ export LD_LIBRARY_PATH="/usr/local/cuda"
 make clean
 make LLAMA_CUDA=1
 
+## For ROCm support:
+# export LD_LIBRARY_PATH=/opt/rocm-5.7.0/lib:$LD_LIBRARY_PATH
+# export CPATH=/opt/rocm-5.7.0/llvm/lib/clang/17.0.0/include:$CPATH
+# make LLAMA_HIPBLAS=1
 
 ./server -m mistral-7b-instruct-v0.2.Q4_K_M.gguf -c 16384 -ngl 33 -b 1024 -t 6 --host 0.0.0.0 --port 8080 -np 2
 ```
