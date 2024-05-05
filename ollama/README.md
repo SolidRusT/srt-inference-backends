@@ -1,5 +1,20 @@
 # Using ollama inference
 
+## Linux Servers
+
+`curl -fsSL https://ollama.com/install.sh | sh`
+
+then: `systemctl edit ollama.service` and add between the comments:
+
+```plaintext
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:8081"
+```
+
+Then run: `systemctl daemon-reload && systemctl restart ollama`
+
+## Modelfiles
+
 create a `Modelfile` with the contets referring to your model.
 For example:
 
