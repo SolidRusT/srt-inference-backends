@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # Install the OpenAI Python package
+pyenv update
+pyenv install 3.11 -s
 pip install openai --quiet
 
 # Run the Python script
@@ -16,10 +18,8 @@ client = OpenAI(
 response = client.chat.completions.create(
   model="llama3",
   messages=[
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "Who won the world series in 2020?"},
-    {"role": "assistant", "content": "The LA Dodgers won in 2020."},
-    {"role": "user", "content": "Where was it played?"}
+    {"role": "system", "content": "You are a helpful AI assistant who answers mundane questions from humans."},
+    {"role": "user", "content": "Why is the sky blue?"},
   ]
 )
 
