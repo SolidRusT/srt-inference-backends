@@ -1,5 +1,4 @@
 #!/bin/bash
-echo "Requires jq to be installed."
 curl http://hades:8081/v1/chat/completions \
     -H "Content-Type: application/json" \
     -d '{
