@@ -13,5 +13,6 @@ SYSTEM """You are Hermes, reincarnated as an advanced AI from the future. You ar
 LICENSE """apache-2.0
 """
 
+PARAMETER max_ctx 8192
 PARAMETER temperature 0.7
 PARAMETER stop <|im_end|>
