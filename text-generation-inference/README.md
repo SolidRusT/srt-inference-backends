@@ -95,10 +95,11 @@ docker run --gpus "device=$gpus" --shm-size 4g -p $service_port:80 \
 ```bash
 model=meta-llama/Meta-Llama-3-8B-Instruct
 volume=$PWD/data
+token=$HF_TOKEN
 
 docker run --rm -it --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
     --device=/dev/kfd --device=/dev/dri --group-add video \
-    --ipc=host --shm-size 256g --net host -v $volume:/data \
+    --ipc=host --shm-size 256g --net host -v $volume:/data -e HUGGING_FACE_HUB_TOKEN=$token \
     ghcr.io/huggingface/text-generation-inference:2.0.4-rocm \
     --model-id $model
 ```
