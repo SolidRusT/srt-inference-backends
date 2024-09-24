@@ -36,8 +36,22 @@ python setup.py develop
 cd repos
 git clone git@github.com:vllm-project/vllm.git
 cd vllm
+# build params
+## https://hub.docker.com/r/rocm/pytorch/tags?name=py3.10
+BASE_IMAGE="rocm/pytorch:rocm6.2_ubuntu22.04_py3.10_pytorch_release_2.3.0"
+PYTORCH_ROCM_ARCH="gfx1100"
+BUILD_TRITON=1
+TRITON_BRANCH="e192dba"
+BUILD_FA=0
 # this will take a while
-DOCKER_BUILDKIT=1 docker build --build-arg BUILD_FA="0" -f Dockerfile.rocm -t vllm-rocm .
+DOCKER_BUILDKIT=1 docker build \
+--build-arg BASE_IMAGE=${BASE_IMAGE} \
+--build-arg PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH} \
+--build-arg BUILD_TRITON=${BUILD_TRITON} \
+--build-arg TRITON_BRANCH=${TRITON_BRANCH} \
+--build-arg BUILD_FA=${BUILD_FA} \
+-f Dockerfile.rocm \
+-t vllm-rocm .
 ```
 
 ### Run vLLM with Docker
@@ -76,26 +90,35 @@ docker run -it \
    bash
 ```
 
-```bash
-export VLLM_USE_TRITON_FLASH_ATTN=0
-python -m vllm.entrypoints.api_server \
---model cognitivecomputations/dolphin-2.6-mistral-7b-dpo-laser \
---tensor-parallel-size 1 \
---device auto \
---dtype auto \
---kv-cache-dtype auto \
---max-model-len 8192
-```
-
-or
+Then inside the container:
 
 ```bash
-VLLM_WORKER_MULTIPROC_METHOD=spawn VLLM_USE_TRITON_FLASH_ATTN=0 vllm serve cognitivecomputations/dolphin-2.6-mistral-7b-dpo-laser --tensor-parallel-size 1 --device auto --dtype auto --kv-cache-dtype auto --max-model-len 8192
+export MODEL_ID="NousResearch/Hermes-3-Llama-3.1-8B"
 
-VLLM_WORKER_MULTIPROC_METHOD=spawn VLLM_USE_TRITON_FLASH_ATTN=0 vllm serve NousResearch/Hermes-3-Llama-3.1-8B --tensor-parallel-size 1 --device auto --dtype auto --kv-cache-dtype auto --max-model-len 131072
+docker run -it \
+   --network=host \
+   --group-add=video \
+   --ipc=host \
+   --cap-add=SYS_PTRACE \
+   --security-opt seccomp=unconfined \
+   --device /dev/kfd \
+   --device /dev/dri \
+   --env "VLLM_WORKER_MULTIPROC_METHOD=spawn" \
+   --env "VLLM_USE_TRITON_FLASH_ATTN=1" \
+   -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+   vllm-rocm:latest \
+   vllm serve ${MODEL_ID} \
+    --tensor-parallel-size 1 \
+    --device cuda \
+    --dtype auto \
+    --kv-cache-dtype auto \
+    --max-model-len 16384 \
+    --tokenizer ${MODEL_ID} \
+    --tool-call-parser hermes \
+    --disable-custom-all-reduce
 ```
 
-Docker Compose:
+## Run vLLM with Docker Compose
 
 ```yaml
 services:
