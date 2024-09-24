@@ -33,6 +33,7 @@ python setup.py develop
 ### Build vLLM with Docker
 
 ```bash
+docker system prune
 cd repos
 git clone git@github.com:vllm-project/vllm.git
 cd vllm
