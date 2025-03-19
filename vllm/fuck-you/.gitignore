@@ -1,0 +1,23 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+tfplan
+tfplan.backup
+#terraform.tfvars
+
+# Configuration files
+config/.env
+
+# Credentials
+.aws/
+*.pem
+*.key
+
+# Logs
+*.log
+
+# OS Specific
+.DS_Store
+Thumbs.db
