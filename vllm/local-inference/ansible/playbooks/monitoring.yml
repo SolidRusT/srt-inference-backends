@@ -1,0 +1,10 @@
+---
+# Monitoring playbook for inference nodes
+
+- name: Install and Configure Monitoring
+  hosts: inference_nodes
+  become: yes
+  tags:
+    - monitoring
+  roles:
+    - monitoring

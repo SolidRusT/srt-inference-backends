@@ -1,0 +1,11 @@
+[Unit]
+Description=Inference Server Backup Service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/inference/backups/backup-inference.sh
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

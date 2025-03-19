@@ -1,0 +1,14 @@
+---
+# Master playbook for inference infrastructure management
+
+- name: Apply Base Configuration
+  import_playbook: site.yml
+
+- name: Configure Monitoring
+  import_playbook: playbooks/monitoring.yml
+
+- name: Configure Backup System
+  import_playbook: playbooks/backup.yml
+
+- name: Deploy Recovery Tools
+  import_playbook: playbooks/recovery.yml

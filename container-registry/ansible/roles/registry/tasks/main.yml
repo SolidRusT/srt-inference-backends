@@ -1,0 +1,101 @@
+---
+# Registry role tasks
+
+- name: Ensure registry directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ registry_storage_path }}"
+    - "{{ registry_cert_path }}"
+    - "{{ registry_auth_path }}"
+
+- name: Generate self-signed certificate for registry
+  command: >
+    openssl req -newkey rsa:4096 -nodes -sha256 -keyout {{ registry_cert_path }}/{{ registry_key_filename }}
+    -x509 -days 365 -out {{ registry_cert_path }}/{{ registry_cert_filename }}
+    -subj "/CN={{ ansible_hostname }}"
+  args:
+    creates: "{{ registry_cert_path }}/{{ registry_cert_filename }}"
+  when: registry_enable_tls | bool
+
+- name: Set permissions on TLS certificate and key
+  file:
+    path: "{{ item }}"
+    mode: '0600'
+  loop:
+    - "{{ registry_cert_path }}/{{ registry_cert_filename }}"
+    - "{{ registry_cert_path }}/{{ registry_key_filename }}"
+  when: registry_enable_tls | bool
+
+- name: Generate htpasswd file for registry authentication
+  shell: |
+    htpasswd -Bbn {{ registry_auth_username }} {{ registry_auth_password }} > {{ registry_auth_path }}/htpasswd
+  args:
+    creates: "{{ registry_auth_path }}/htpasswd"
+  when: registry_enable_auth | bool
+
+- name: Create registry config.yml
+  template:
+    src: config.yml.j2
+    dest: "{{ registry_storage_path }}/config.yml"
+    mode: '0644'
+  notify: Restart registry container
+
+- name: Deploy registry container
+  docker_container:
+    name: "{{ registry_container_name }}"
+    image: "{{ registry_image }}"
+    restart_policy: always
+    ports:
+      - "{{ registry_port }}:5000"
+    volumes:
+      - "{{ registry_storage_path }}:/var/lib/registry"
+      - "{{ registry_storage_path }}/config.yml:/etc/docker/registry/config.yml:ro"
+      - "{{ registry_cert_path }}:/certs"
+      - "{{ registry_auth_path }}:/auth"
+    env:
+      REGISTRY_HTTP_TLS_CERTIFICATE: "/certs/{{ registry_cert_filename }}"
+      REGISTRY_HTTP_TLS_KEY: "/certs/{{ registry_key_filename }}"
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Registry Realm"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+    log_driver: "json-file"
+    log_options:
+      max-size: "100m"
+      max-file: "3"
+
+- name: Create garbage collection cron job
+  cron:
+    name: "Docker Registry Garbage Collection"
+    hour: "{{ registry_garbage_collection_cron.split(' ')[1] }}"
+    minute: "{{ registry_garbage_collection_cron.split(' ')[0] }}"
+    weekday: "{{ registry_garbage_collection_cron.split(' ')[4] }}"
+    job: "docker exec {{ registry_container_name }} bin/registry garbage-collect /etc/docker/registry/config.yml > /var/log/registry-gc.log 2>&1"
+  when: registry_garbage_collection_enabled | bool
+
+- name: Add registry to local Docker config
+  template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  notify: Restart Docker
+
+- name: Create registry health check script
+  template:
+    src: health_check.sh.j2
+    dest: /usr/local/bin/registry-health-check.sh
+    mode: '0755'
+
+- name: Set up health check cron job
+  cron:
+    name: "Docker Registry Health Check"
+    minute: "*/5"
+    job: "/usr/local/bin/registry-health-check.sh >/dev/null 2>&1"
+
+- name: Create registry status script
+  template:
+    src: registry_status.sh.j2
+    dest: /usr/local/bin/registry-status.sh
+    mode: '0755'

@@ -1,0 +1,96 @@
+---
+- name: Install monitoring dependencies
+  apt:
+    name:
+      - prometheus-node-exporter
+      - jq
+      - smartmontools
+      - lm-sensors
+    state: present
+
+- name: Create NVIDIA monitoring script directory
+  file:
+    path: /opt/inference/monitoring
+    state: directory
+    mode: '0755'
+
+- name: Deploy NVIDIA GPU metrics exporter script
+  template:
+    src: nvidia-gpu-exporter.sh.j2
+    dest: /opt/inference/monitoring/nvidia-gpu-exporter.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Deploy NVIDIA GPU metrics service file
+  template:
+    src: nvidia-gpu-exporter.service.j2
+    dest: /etc/systemd/system/nvidia-gpu-exporter.service
+    mode: '0644'
+    owner: root
+    group: root
+  register: nvidia_exporter_service
+
+- name: Create Prometheus textfile directory
+  file:
+    path: /var/lib/prometheus/node-exporter
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Configure node_exporter for textfile collection
+  lineinfile:
+    path: /etc/default/prometheus-node-exporter
+    regexp: '^ARGS="(.*)"$'
+    line: 'ARGS="--collector.textfile.directory=/var/lib/prometheus/node-exporter $ARGS"'
+    state: present
+  register: node_exporter_config
+
+- name: Restart node_exporter service
+  systemd:
+    name: prometheus-node-exporter
+    state: restarted
+  when: node_exporter_config.changed
+
+- name: Enable and start NVIDIA GPU metrics exporter
+  systemd:
+    name: nvidia-gpu-exporter
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  when: nvidia_exporter_service.changed
+
+- name: Create vLLM metrics collector script
+  template:
+    src: vllm-metrics.sh.j2
+    dest: /opt/inference/monitoring/vllm-metrics.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Deploy vLLM metrics service
+  template:
+    src: vllm-metrics.service.j2
+    dest: /etc/systemd/system/vllm-metrics.service
+    mode: '0644'
+    owner: root
+    group: root
+  register: vllm_metrics_service
+
+- name: Deploy vLLM metrics timer
+  template:
+    src: vllm-metrics.timer.j2
+    dest: /etc/systemd/system/vllm-metrics.timer
+    mode: '0644'
+    owner: root
+    group: root
+  register: vllm_metrics_timer
+
+- name: Enable and start vLLM metrics timer
+  systemd:
+    name: vllm-metrics.timer
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  when: vllm_metrics_timer.changed or vllm_metrics_service.changed

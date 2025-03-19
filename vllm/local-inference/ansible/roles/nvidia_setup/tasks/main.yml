@@ -1,0 +1,100 @@
+---
+- name: Check if NVIDIA GPG keyring exists
+  stat:
+    path: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  register: nvidia_keyring
+  check_mode: false
+
+- name: Add NVIDIA container toolkit repository key
+  get_url:
+    url: https://nvidia.github.io/libnvidia-container/gpgkey
+    dest: /tmp/nvidia-gpgkey
+  register: nvidia_key
+  when: not nvidia_keyring.stat.exists and not skip_nvidia_gpg|bool
+
+- name: Add NVIDIA GPG key to keyring
+  shell: cat /tmp/nvidia-gpgkey | gpg --dearmor > /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  when: not nvidia_keyring.stat.exists and not skip_nvidia_gpg|bool
+  register: gpg_result
+  ignore_errors: true
+
+- name: Alternative method to add NVIDIA GPG key if previous method failed
+  shell: |
+    wget -qO- https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  when: not nvidia_keyring.stat.exists and not skip_nvidia_gpg|bool and (gpg_result is failed or gpg_result is skipped)
+  ignore_errors: true
+
+- name: Create empty keyring file if GPG operations fail
+  file:
+    path: /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    state: touch
+    mode: '0644'
+  when: skip_nvidia_gpg|bool and not nvidia_keyring.stat.exists
+
+- name: Add NVIDIA container toolkit repository
+  template:
+    src: nvidia-container-toolkit.list.j2
+    dest: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    owner: root
+    group: root
+    mode: '0644'
+  register: nvidia_repo_added
+
+- name: Check if CUDA keyring is installed
+  command: dpkg-query -W -f='${Status}' cuda-keyring
+  register: cuda_keyring_status
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+- name: Download CUDA keyring package
+  get_url:
+    url: https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb
+    dest: /tmp/cuda-keyring_1.1-1_all.deb
+  register: cuda_keyring
+  when: cuda_keyring_status.rc != 0 and not skip_nvidia_gpg|bool
+
+- name: Install CUDA keyring
+  apt:
+    deb: /tmp/cuda-keyring_1.1-1_all.deb
+  when: cuda_keyring.changed and not skip_nvidia_gpg|bool
+
+- name: Update apt cache after adding NVIDIA repositories
+  apt:
+    update_cache: yes
+  when: nvidia_repo_added.changed or cuda_keyring.changed
+
+- name: Install NVIDIA drivers and CUDA
+  apt:
+    name:
+      - nvidia-driver
+      - firmware-misc-nonfree
+      - cuda-toolkit
+      - cuda
+      - libnvidia-ml-dev
+      - nvidia-container-toolkit
+    state: present
+
+- name: Generate machine owner key for secure boot
+  command: dkms generate_mok
+  args:
+    creates: /var/lib/dkms/mok.pub
+  register: mok_generated
+
+- name: Import machine owner key
+  command: mokutil --import /var/lib/dkms/mok.pub
+  when: mok_generated.changed
+  register: mok_imported
+
+- name: Notify user to approve MOK on next boot
+  debug:
+    msg: "A MOK enrollment was requested. On the next boot, you will need to approve it during the MOK management screen."
+  when: mok_imported.changed
+
+- name: Set NVIDIA runtime configuration for Docker
+  command: nvidia-ctk runtime configure --runtime=docker
+  args:
+    creates: /etc/docker/daemon.json
+  register: nvidia_runtime_configured

@@ -1,0 +1,76 @@
+---
+# Docker installation and configuration
+
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/debian/gpg
+    state: present
+
+- name: Add Docker repository
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+    state: present
+    filename: docker
+
+- name: Install Docker packages
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: yes
+
+- name: Create Docker config directory
+  file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+
+- name: Configure Docker daemon
+  copy:
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "100m",
+          "max-file": "3"
+        },
+        "default-address-pools": [
+          {"base": "172.16.0.0/16", "size": 24}
+        ],
+        "storage-driver": "overlay2",
+        "registry-mirrors": ["https://registry-1.docker.io"],
+        "experimental": false
+      }
+    dest: /etc/docker/daemon.json
+  notify: Restart Docker
+
+- name: Ensure Docker service is running and enabled
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Install Docker Python module
+  pip:
+    name: docker
+    state: present
+
+- name: Create Docker user group
+  group:
+    name: docker
+    state: present
+
+- name: Add system user to Docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+
+# Handlers
+- name: Restart Docker
+  service:
+    name: docker
+    state: restarted

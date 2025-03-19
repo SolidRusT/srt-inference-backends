@@ -1,0 +1,10 @@
+[Unit]
+Description=Run vLLM Metrics Collection Service periodically
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=30s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

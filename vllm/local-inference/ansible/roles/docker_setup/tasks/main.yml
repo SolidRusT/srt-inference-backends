@@ -1,0 +1,78 @@
+---
+- name: Remove conflicting packages
+  apt:
+    name:
+      - docker.io
+      - docker-doc
+      - docker-compose
+      - podman-docker
+      - containerd
+      - runc
+    state: absent
+
+- name: Create docker keyrings directory
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Add Docker GPG key
+  get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+  register: docker_key_downloaded
+
+- name: Set permissions on Docker GPG key
+  file:
+    path: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+  when: docker_key_downloaded.changed
+
+- name: Add Docker repository
+  template:
+    src: docker.list.j2
+    dest: /etc/apt/sources.list.d/docker.list
+    owner: root
+    group: root
+    mode: '0644'
+  register: docker_repo_added
+
+- name: Update apt cache after adding Docker repository
+  apt:
+    update_cache: yes
+  when: docker_repo_added.changed
+
+- name: Install Docker packages
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+
+- name: Add specified user to docker group
+  user:
+    name: "{{ item }}"
+    groups: docker
+    append: yes
+  loop:
+    - "{{ ansible_user }}"
+  when: ansible_user is defined
+
+- name: Configure Docker daemon for NVIDIA runtime
+  template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0644'
+  register: docker_daemon_configured
+
+- name: Restart Docker service
+  systemd:
+    name: docker
+    state: restarted
+    daemon_reload: yes
+  when: docker_daemon_configured.changed

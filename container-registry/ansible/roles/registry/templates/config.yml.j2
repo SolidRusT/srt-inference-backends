@@ -1,0 +1,54 @@
+version: 0.1
+log:
+  level: info
+  formatter: text
+  fields:
+    service: registry
+    environment: production
+storage:
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: {{ registry_storage_delete_enabled | lower }}
+  cache:
+    blobdescriptor: inmemory
+http:
+  addr: :5000
+  headers:
+    X-Content-Type-Options: [nosniff]
+  tls:
+    certificate: /certs/{{ registry_cert_filename }}
+    key: /certs/{{ registry_key_filename }}
+auth:
+  htpasswd:
+    realm: Registry Realm
+    path: /auth/htpasswd
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3
+notifications:
+  endpoints:
+    - name: webhook
+      disabled: true
+      url: https://webhook:8080/registry
+      timeout: 500ms
+      threshold: 5
+      backoff: 1s
+      headers:
+        Authorization: [Bearer <token>]
+proxy:
+  remoteurl: https://registry-1.docker.io
+middleware:
+  registry:
+    - name: repository
+      options:
+        allow:
+{% for cidr in registry_allow_cidr %}
+          - {{ cidr }}
+{% endfor %}
+  repository:
+    - name: vulnerability-scanning
+      options:
+        enabled: false

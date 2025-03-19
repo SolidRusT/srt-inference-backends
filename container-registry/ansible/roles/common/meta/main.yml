@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  author: Your Name
+  description: Common role for Container Registry deployment
+  license: MIT
+  min_ansible_version: 2.9
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - registry
+    - common
+
+dependencies: []

@@ -1,0 +1,51 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Configure custom apt sources
+  template:
+    src: sources.list.j2
+    dest: /etc/apt/sources.list
+    owner: root
+    group: root
+    mode: '0644'
+  register: apt_sources_updated
+
+- name: Update apt cache if sources were updated
+  apt:
+    update_cache: yes
+  when: apt_sources_updated.changed
+
+- name: Install essential packages
+  apt:
+    name:
+      - wget
+      - curl
+      - htop
+      - figlet
+      - lolcat
+      - gpg
+      - git
+      - screen
+      - build-essential
+      - gcc
+      - make
+      - python3-full
+      - python3-pip
+      - python3-venv
+      - python3-wheel
+      - ca-certificates
+      - linux-headers-amd64
+    state: present
+
+- name: Create useful directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/inference
+    - /opt/inference/scripts
+    - /opt/inference/logs

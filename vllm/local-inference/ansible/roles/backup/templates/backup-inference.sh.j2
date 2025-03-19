@@ -1,0 +1,59 @@
+#!/bin/bash
+# Backup script for inference server configuration and logs
+
+# Set backup directory
+BACKUP_DIR="/opt/inference/backups"
+CONFIG_BACKUP_DIR="${BACKUP_DIR}/config"
+LOGS_BACKUP_DIR="${BACKUP_DIR}/logs"
+
+# Create timestamp
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+HOSTNAME=$(hostname)
+
+# Create backup filename
+CONFIG_BACKUP_FILE="${CONFIG_BACKUP_DIR}/${HOSTNAME}_config_${TIMESTAMP}.tar.gz"
+LOGS_BACKUP_FILE="${LOGS_BACKUP_DIR}/${HOSTNAME}_logs_${TIMESTAMP}.tar.gz"
+
+# Log function
+log() {
+    echo "[$(date +%Y-%m-%d\ %H:%M:%S)] $1"
+}
+
+# Start backup
+log "Starting inference server backup"
+
+# Backup configuration files
+log "Backing up configuration files"
+tar -czf "$CONFIG_BACKUP_FILE" \
+    /etc/apt/sources.list \
+    /etc/apt/sources.list.d \
+    /etc/docker/daemon.json \
+    /etc/systemd/system/vllm.service \
+    /opt/inference/vllm \
+    /opt/inference/monitoring 2>/dev/null
+
+# Check if backup was successful
+if [ $? -eq 0 ]; then
+    log "Configuration backup created: $CONFIG_BACKUP_FILE"
+else
+    log "Error creating configuration backup"
+fi
+
+# Backup logs
+log "Backing up logs"
+tar -czf "$LOGS_BACKUP_FILE" \
+    /opt/inference/logs 2>/dev/null
+
+# Check if backup was successful
+if [ $? -eq 0 ]; then
+    log "Logs backup created: $LOGS_BACKUP_FILE"
+else
+    log "Error creating logs backup"
+fi
+
+# Cleanup old backups - keep only the last 7 days
+log "Cleaning up old backups"
+find "$CONFIG_BACKUP_DIR" -name "*.tar.gz" -mtime +7 -delete
+find "$LOGS_BACKUP_DIR" -name "*.tar.gz" -mtime +7 -delete
+
+log "Backup completed"

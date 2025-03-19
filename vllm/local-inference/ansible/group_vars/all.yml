@@ -1,0 +1,22 @@
+---
+# Global variables for all hosts
+
+# vLLM configuration
+vllm_model: "solidrust/Hermes-3-Llama-3.1-8B-AWQ"
+vllm_port: "8081"
+vllm_max_model_len: "14992"
+vllm_gpu_memory: "0.90"  # Reduced from 0.98 to prevent OOM errors
+vllm_max_num_seqs: "64"  # Limit concurrent sequences to prevent OOM during startup
+vllm_tensor_parallel_size: "1"
+vllm_logging_level: "DEBUG"
+vllm_image_tag: "v0.7.3" # "latest"
+vllm_tool_call_parser: "hermes"
+
+# Optional: HuggingFace token (uncomment and set if needed)
+# huggingface_token: "your_token_here"
+
+# System configuration
+reboot_after_driver_install: true
+
+# Skip problematic tasks if needed
+skip_nvidia_gpg: false  # Set to true to skip the NVIDIA GPG key import

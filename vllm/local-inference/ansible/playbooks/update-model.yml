@@ -1,0 +1,115 @@
+---
+# Playbook to update the vLLM model on inference nodes
+
+- name: Update vLLM Model
+  hosts: inference_nodes
+  become: yes
+  vars_prompt:
+    - name: model_name
+      prompt: "Enter the new model name (e.g., solidrust/Hermes-3-Llama-3.1-8B-AWQ)"
+      private: no
+      default: "solidrust/Hermes-3-Llama-3.1-8B-AWQ"
+    
+    - name: max_model_length
+      prompt: "Enter max model length"
+      private: no
+      default: "14992"
+    
+    - name: gpu_memory
+      prompt: "Enter GPU memory utilization (0.0-1.0)"
+      private: no
+      default: "0.85"
+    
+    - name: max_num_seqs
+      prompt: "Enter maximum number of sequences"
+      private: no
+      default: "64"
+    
+    - name: tensor_parallel
+      prompt: "Enter tensor parallel size"
+      private: no
+      default: "1"
+    
+    - name: tool_call_parser
+      prompt: "Enter tool call parser (hermes, claude, etc.)"
+      private: no
+      default: "hermes"
+
+    - name: logging_level
+      prompt: "Enter vLLM logging level (DEBUG, INFO, etc.)"
+      private: no
+      default: "DEBUG"
+
+    - name: vllm_port
+      prompt: "Enter vLLM port"
+      private: no
+      default: "8081"
+
+    - name: image_tag
+      prompt: "Enter vLLM image tag"
+      private: no
+      default: "latest"
+    
+    - name: huggingface_token
+      prompt: "Enter Hugging Face token (optional)"
+      private: yes
+      default: ""
+  
+  tasks:
+    - name: Update vLLM configuration in group_vars
+      delegate_to: localhost
+      become: no
+      blockinfile:
+        path: "{{ playbook_dir }}/../group_vars/all.yml"
+        marker: "# {mark} VLLM MODEL CONFIGURATION"
+        block: |
+          # vLLM configuration
+          vllm_model: "{{ model_name }}"
+          vllm_max_model_len: "{{ max_model_length }}"
+          vllm_gpu_memory: "{{ gpu_memory }}"
+          vllm_max_num_seqs: "{{ max_num_seqs }}"
+          vllm_tensor_parallel_size: "{{ tensor_parallel }}"
+          vllm_logging_level: "{{ logging_level }}"
+          vllm_port: "{{ vllm_port }}"
+          vllm_image_tag: "{{ image_tag }}"
+          vllm_tool_call_parser: "{{ tool_call_parser }}"
+          {% if huggingface_token != "" %}
+          huggingface_token: "{{ huggingface_token }}"
+          {% endif %}
+      register: config_updated
+    
+    - name: Restart vLLM service to apply new model
+      systemd:
+        name: vllm
+        state: restarted
+      when: config_updated.changed
+    
+    - name: Wait for vLLM to initialize
+      pause:
+        seconds: 30
+      when: config_updated.changed
+    
+    - name: Check vLLM status
+      command: docker ps -a
+      register: docker_status
+      changed_when: false
+    
+    - name: Display vLLM container status
+      debug:
+        var: docker_status.stdout_lines
+    
+    - name: Check if vLLM server is responding
+      command: /opt/inference/vllm/test-vllm.py --model "{{ model_name }}" --port {{ vllm_port }}
+      register: vllm_test
+      ignore_errors: yes
+      changed_when: false
+    
+    - name: Display test results
+      debug:
+        var: vllm_test.stdout_lines
+      when: vllm_test.rc == 0
+    
+    - name: Display test errors
+      debug:
+        var: vllm_test.stderr_lines
+      when: vllm_test.rc != 0

@@ -1,0 +1,70 @@
+#!/bin/bash
+# Recovery script for inference node
+# This script attempts to recover the vLLM service and GPU drivers
+
+LOG_FILE="/opt/inference/logs/recovery_$(date +%Y%m%d_%H%M%S).log"
+
+log() {
+    echo "[$(date +%Y-%m-%d\ %H:%M:%S)] $1" | tee -a "$LOG_FILE"
+}
+
+log "Starting recovery procedure..."
+
+# Check if GPU is accessible
+if ! nvidia-smi &>/dev/null; then
+    log "GPU is not accessible, attempting to recover NVIDIA drivers"
+    
+    # Try to unload and reload NVIDIA modules
+    log "Unloading NVIDIA modules..."
+    sudo rmmod nvidia_drm nvidia_modeset nvidia &>/dev/null || true
+    
+    log "Reloading NVIDIA modules..."
+    sudo modprobe nvidia &>/dev/null
+    
+    # Check if that fixed the issue
+    if nvidia-smi &>/dev/null; then
+        log "NVIDIA driver recovery successful"
+    else
+        log "NVIDIA driver recovery failed, a reboot may be required"
+    fi
+else
+    log "GPU is accessible"
+fi
+
+# Check if Docker is running
+if ! systemctl is-active --quiet docker; then
+    log "Docker service is not running, attempting to restart..."
+    sudo systemctl restart docker
+    sleep 5
+    
+    if systemctl is-active --quiet docker; then
+        log "Docker service restarted successfully"
+    else
+        log "Failed to restart Docker service"
+    fi
+else
+    log "Docker service is running"
+fi
+
+# Check if vLLM container is running
+if ! docker ps | grep -q vllm-server; then
+    log "vLLM container is not running, attempting to restart vLLM service..."
+    
+    # Stop and remove any existing container
+    docker rm -f vllm-server &>/dev/null || true
+    
+    # Restart vLLM service
+    sudo systemctl restart vllm
+    sleep 10
+    
+    # Check if vLLM container is now running
+    if docker ps | grep -q vllm-server; then
+        log "vLLM service restarted successfully"
+    else
+        log "Failed to restart vLLM service"
+    fi
+else
+    log "vLLM container is running"
+fi
+
+log "Recovery procedure completed"

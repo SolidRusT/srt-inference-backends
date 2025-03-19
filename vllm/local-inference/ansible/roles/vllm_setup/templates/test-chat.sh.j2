@@ -1,0 +1,113 @@
+#!/bin/bash
+# Simple test script to interact with the vLLM Chat API
+# Deployed as part of the vLLM setup
+# Shaun - March 2025
+
+MODEL="{{ vllm_model }}"
+PORT="{{ vllm_port }}"
+HOST="localhost"
+
+# ANSI colors
+GREEN="\033[0;32m"
+BLUE="\033[0;34m"
+YELLOW="\033[0;33m"
+RED="\033[0;31m"
+NC="\033[0m" # No Color
+
+echo -e "${BLUE}vLLM Chat API Test${NC}"
+echo "Host: $HOST"
+echo "Port: $PORT"
+echo "Model: $MODEL"
+echo -e "${YELLOW}Enter your system prompt (or press Enter for default):${NC}"
+read -r system_prompt
+if [ -z "$system_prompt" ]; then
+    system_prompt="You are a helpful AI assistant."
+fi
+
+echo -e "${YELLOW}Enter your user prompt:${NC}"
+read -r user_prompt
+if [ -z "$user_prompt" ]; then
+    user_prompt="Tell me a short joke."
+    echo "Using default user prompt: '$user_prompt'"
+fi
+
+echo -e "${YELLOW}Would you like to stream the response? (y/n):${NC}"
+read -r stream_response
+if [[ "$stream_response" == "y" || "$stream_response" == "Y" ]]; then
+    stream="--stream"
+    echo "Streaming enabled"
+else
+    stream=""
+    echo "Streaming disabled"
+fi
+
+# Construct the JSON payload
+json_data='{
+  "model": "'"$MODEL"'",
+  "messages": [
+    {"role": "system", "content": "'"$system_prompt"'"},
+    {"role": "user", "content": "'"$user_prompt"'"}
+  ],
+  "max_tokens": 200,
+  "temperature": 0.7,
+  "stream": '"$(if [[ -n "$stream" ]]; then echo "true"; else echo "false"; fi)"'
+}'
+
+echo -e "${GREEN}Sending request...${NC}"
+echo "JSON payload:"
+echo "$json_data" | python3 -m json.tool
+
+if [[ -n "$stream" ]]; then
+    # Stream the response
+    curl -s -X POST "http://${HOST}:${PORT}/v1/chat/completions" \
+         -H "Content-Type: application/json" \
+         -d "$json_data" | while read -r line; do
+        if [[ "$line" == data:* ]]; then
+            line="${line#data: }"
+            if [[ "$line" != "[DONE]" ]]; then
+                echo "$line" | python3 -c '
+import json, sys
+try:
+    line = sys.stdin.read().strip()
+    if line:
+        data = json.loads(line)
+        if "choices" in data and data["choices"] and "delta" in data["choices"][0]:
+            delta = data["choices"][0]["delta"]
+            if "content" in delta:
+                print(delta["content"], end="", flush=True)
+except Exception as e:
+    pass
+'
+            fi
+        fi
+    done
+    echo -e "\n${GREEN}Request completed${NC}"
+else
+    # Get the response at once
+    response=$(curl -s -X POST "http://${HOST}:${PORT}/v1/chat/completions" \
+                   -H "Content-Type: application/json" \
+                   -d "$json_data")
+    
+    # Extract and display the response content
+    echo -e "${GREEN}Response received:${NC}"
+    echo "$response" | python3 -c '
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+    if "choices" in data and data["choices"] and "message" in data["choices"][0]:
+        message = data["choices"][0]["message"]
+        print(f"Role: {message.get(\"role\", \"unknown\")}")
+        print(f"\nContent:\n{message.get(\"content\", \"\")}")
+    
+    if "usage" in data:
+        usage = data["usage"]
+        print(f"\nToken usage:")
+        print(f"  Prompt tokens: {usage.get(\"prompt_tokens\", \"N/A\")}")
+        print(f"  Completion tokens: {usage.get(\"completion_tokens\", \"N/A\")}")
+        print(f"  Total tokens: {usage.get(\"total_tokens\", \"N/A\")}")
+except Exception as e:
+    print(f"Error parsing response: {e}")
+    print("Raw response:")
+    print(sys.stdin.read())
+'
+fi

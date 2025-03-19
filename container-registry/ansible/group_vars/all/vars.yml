@@ -1,0 +1,18 @@
+---
+# Global variables for all servers
+timezone: UTC
+
+# Default passwords - CHANGE THESE IN PRODUCTION!
+registry_default_password: "changeme"
+hf_token: ""  # Add your Hugging Face token if using gated models
+
+# Network configuration
+internal_network_cidr: "192.168.1.0/24"
+
+# Docker configuration
+docker_version: "24.0.5"
+docker_compose_version: "2.20.2"
+
+# Monitoring configuration
+enable_monitoring: true
+prometheus_port: 9100

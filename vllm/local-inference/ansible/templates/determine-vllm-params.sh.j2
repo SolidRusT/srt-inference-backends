@@ -1,0 +1,59 @@
+#!/bin/bash
+# Dynamically determine appropriate vLLM parameters based on available GPU memory
+
+# Get total GPU memory in MiB
+GPU_MEM_TOTAL=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | awk '{sum += $1} END {print sum}')
+echo "Total GPU memory: ${GPU_MEM_TOTAL} MiB"
+
+# Calculate conservative values for vLLM parameters
+# For GPU memory < 12GB, use more conservative values
+if [ ${GPU_MEM_TOTAL} -lt 12000 ]; then
+    # For smaller GPUs like 8GB
+    RECOMMENDED_GPU_UTIL="0.75"
+    RECOMMENDED_MAX_SEQS="32"
+elif [ ${GPU_MEM_TOTAL} -lt 24000 ]; then
+    # For mid-range GPUs (12-24GB)
+    RECOMMENDED_GPU_UTIL="0.85"
+    RECOMMENDED_MAX_SEQS="64"
+else
+    # For high-end GPUs (>24GB)
+    RECOMMENDED_GPU_UTIL="0.90"
+    RECOMMENDED_MAX_SEQS="128"
+fi
+
+# Calculate max model length based on available memory
+# This is a rough estimate and may need tuning
+# For 8GB GPUs, set a reasonable limit for 8-bit quantized models
+if [ ${GPU_MEM_TOTAL} -lt 10000 ]; then
+    RECOMMENDED_MAX_LEN="8192"
+else
+    # Scale with available memory
+    RECOMMENDED_MAX_LEN=$(echo "${GPU_MEM_TOTAL} / 1024 * 1024" | bc)
+    
+    # Cap at reasonable limit
+    if [ ${RECOMMENDED_MAX_LEN} -gt 32768 ]; then
+        RECOMMENDED_MAX_LEN="32768"
+    fi
+fi
+
+# Output recommendations
+cat << EOF > /opt/inference/vllm/recommended_params.txt
+# Automatically generated vLLM parameter recommendations
+# GPU Memory: ${GPU_MEM_TOTAL} MiB
+
+# Recommended parameters for ansible/group_vars/all.yml:
+vllm_gpu_memory: "${RECOMMENDED_GPU_UTIL}"
+vllm_max_num_seqs: "${RECOMMENDED_MAX_SEQS}"
+vllm_max_model_len: "${RECOMMENDED_MAX_LEN}"
+
+# These values are based on your hardware and may need adjustment
+# If you still encounter OOM errors, try reducing these values further
+EOF
+
+echo "Recommendations saved to /opt/inference/vllm/recommended_params.txt"
+echo
+echo "Recommended Parameters:"
+echo "-----------------------"
+echo "GPU Memory Utilization: ${RECOMMENDED_GPU_UTIL}"
+echo "Maximum Sequences: ${RECOMMENDED_MAX_SEQS}"
+echo "Maximum Model Length: ${RECOMMENDED_MAX_LEN}"

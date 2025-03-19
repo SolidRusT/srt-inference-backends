@@ -1,0 +1,11 @@
+---
+- name: Configure Inference Nodes
+  hosts: inference_nodes
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - { role: common, tags: ['common'] }
+    - { role: nvidia_setup, tags: ['nvidia'] }
+    - { role: docker_setup, tags: ['docker'] }
+    - { role: vllm_setup, tags: ['vllm'] }

@@ -1,0 +1,37 @@
+---
+# Main playbook for container registry deployment
+
+- name: Common setup for all servers
+  hosts: all
+  become: yes
+  tags:
+    - common
+    - setup
+  roles:
+    - common
+
+- name: Install and configure Docker
+  hosts: all
+  become: yes
+  tags:
+    - docker
+    - setup
+  roles:
+    - docker
+
+- name: Deploy container registry
+  hosts: registry_servers
+  become: yes
+  tags:
+    - registry
+  roles:
+    - registry
+
+- name: Deploy vLLM service
+  hosts: vllm_servers
+  become: yes
+  tags:
+    - vllm
+    - llm
+  roles:
+    - vllm

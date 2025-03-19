@@ -1,0 +1,25 @@
+---
+# vLLM role defaults
+
+# vLLM container settings
+vllm_container_name: vllm-server
+vllm_image: "{{ ansible_hostname }}:{{ registry_port }}/vllm:latest"
+vllm_build_dir: /opt/vllm-build
+vllm_http_port: 8000
+vllm_api_port: 8080
+
+# vLLM model settings
+vllm_model: "meta-llama/Llama-2-7b-chat-hf"
+vllm_tensor_parallel_size: 1
+vllm_gpu_memory_utilization: 0.9
+vllm_max_model_len: 4096
+vllm_quantization: null  # Set to "awq" or "squeezellm" for quantization
+
+# Container resource limits
+vllm_memory_limit: "32g"
+vllm_cpus_limit: "8"
+vllm_gpus: "all"
+
+# Monitoring settings
+vllm_enable_monitoring: true
+vllm_prometheus_port: 9100

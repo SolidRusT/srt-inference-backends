@@ -1,0 +1,129 @@
+---
+# vLLM tasks
+
+- name: Install NVIDIA driver dependencies
+  apt:
+    name:
+      - nvidia-driver-525
+      - nvidia-cuda-toolkit
+    state: present
+  when: vllm_gpus != "none"
+
+- name: Install NVIDIA Container Toolkit
+  apt:
+    name:
+      - nvidia-container-toolkit
+    state: present
+  when: vllm_gpus != "none"
+
+- name: Configure Docker to use NVIDIA runtime
+  copy:
+    content: |
+      {
+        "default-runtime": "nvidia",
+        "runtimes": {
+          "nvidia": {
+            "path": "/usr/bin/nvidia-container-runtime",
+            "runtimeArgs": []
+          }
+        }
+      }
+    dest: /etc/docker/daemon.json
+  notify: Restart Docker
+  when: vllm_gpus != "none"
+
+- name: Create vLLM build directory
+  file:
+    path: "{{ vllm_build_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy vLLM Dockerfile
+  template:
+    src: Dockerfile.j2
+    dest: "{{ vllm_build_dir }}/Dockerfile"
+    mode: '0644'
+
+- name: Copy vLLM server script
+  template:
+    src: server.py.j2
+    dest: "{{ vllm_build_dir }}/server.py"
+    mode: '0644'
+
+- name: Copy vLLM entrypoint script
+  template:
+    src: entrypoint.sh.j2
+    dest: "{{ vllm_build_dir }}/entrypoint.sh"
+    mode: '0755'
+
+- name: Copy HF Model config
+  template:
+    src: download_model.py.j2
+    dest: "{{ vllm_build_dir }}/download_model.py"
+    mode: '0644'
+
+- name: Build vLLM Docker image
+  docker_image:
+    name: "vllm"
+    build:
+      path: "{{ vllm_build_dir }}"
+      pull: yes
+    source: build
+    tag: latest
+
+- name: Tag vLLM image for registry
+  command: >
+    docker tag vllm:latest {{ vllm_image }}
+  changed_when: true
+
+- name: Push vLLM image to registry
+  docker_image:
+    name: "{{ vllm_image }}"
+    push: yes
+    source: local
+
+- name: Deploy vLLM container
+  docker_container:
+    name: "{{ vllm_container_name }}"
+    image: "{{ vllm_image }}"
+    restart_policy: always
+    ports:
+      - "{{ vllm_http_port }}:8000"
+      - "{{ vllm_api_port }}:8080"
+      - "{{ vllm_prometheus_port }}:9100"
+    env:
+      MODEL_NAME: "{{ vllm_model }}"
+      TP_SIZE: "{{ vllm_tensor_parallel_size }}"
+      GPU_MEM_UTIL: "{{ vllm_gpu_memory_utilization }}"
+      MAX_MODEL_LEN: "{{ vllm_max_model_len }}"
+      QUANTIZATION: "{{ vllm_quantization | default('none') }}"
+    devices:
+      - "{{ '/dev/nvidia0:/dev/nvidia0' if vllm_gpus != 'none' else omit }}"
+    device_requests:
+      - driver: nvidia
+        count: all
+        capabilities: [gpu]
+    memory: "{{ vllm_memory_limit }}"
+    cpus: "{{ vllm_cpus_limit }}"
+    log_driver: "json-file"
+    log_options:
+      max-size: "100m"
+      max-file: "3"
+
+- name: Create vLLM health check script
+  template:
+    src: health_check.sh.j2
+    dest: /usr/local/bin/vllm-health-check.sh
+    mode: '0755'
+
+- name: Set up vLLM health check cron job
+  cron:
+    name: "vLLM Health Check"
+    minute: "*/5"
+    job: "/usr/local/bin/vllm-health-check.sh >/dev/null 2>&1"
+
+- name: Create vLLM status script
+  template:
+    src: vllm_status.sh.j2
+    dest: /usr/local/bin/vllm-status.sh
+    mode: '0755'

@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# vLLM health check script
+VLLM_HOST="localhost"
+VLLM_PORT="{{ vllm_http_port }}"
+
+# Function to send notification on failure
+notify() {
+  echo "ERROR: vLLM health check failed - $1"
+  # Add notification commands here (e.g., email, Slack webhook, etc.)
+}
+
+# Check if vLLM container is running
+if ! docker ps | grep -q {{ vllm_container_name }}; then
+  notify "vLLM container is not running"
+  docker start {{ vllm_container_name }} || true
+  exit 1
+fi
+
+# Check if vLLM API is responding
+if ! curl -s -f "http://${VLLM_HOST}:${VLLM_PORT}/health" > /dev/null; then
+  notify "vLLM API is not responding"
+  docker restart {{ vllm_container_name }} || true
+  exit 1
+fi
+
+# Check GPU utilization if NVIDIA tools are available
+if command -v nvidia-smi &> /dev/null; then
+  GPU_UTIL=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits)
+  GPU_MEM=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits)
+  GPU_TOTAL=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits)
+  
+  # If GPU memory usage is too high (>95%), restart container
+  MEM_PERCENT=$((GPU_MEM * 100 / GPU_TOTAL))
+  if [ "$MEM_PERCENT" -gt 95 ]; then
+    notify "GPU memory usage is critical: ${MEM_PERCENT}%"
+    docker restart {{ vllm_container_name }} || true
+  fi
+fi
+
+exit 0

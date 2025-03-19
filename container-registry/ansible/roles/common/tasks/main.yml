@@ -1,0 +1,62 @@
+---
+# Common tasks for all servers
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install common packages
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - python3-pip
+      - python3-setuptools
+      - software-properties-common
+      - htop
+      - vim
+      - net-tools
+      - ntp
+    state: present
+
+- name: Set timezone
+  timezone:
+    name: UTC
+
+- name: Ensure NTP is running and enabled
+  service:
+    name: ntp
+    state: started
+    enabled: yes
+
+- name: Set up security limits
+  pam_limits:
+    domain: '*'
+    limit_type: "{{ item.limit_type }}"
+    limit_item: "{{ item.limit_item }}"
+    value: "{{ item.value }}"
+  loop:
+    - { limit_type: soft, limit_item: nofile, value: 64000 }
+    - { limit_type: hard, limit_item: nofile, value: 64000 }
+    - { limit_type: soft, limit_item: nproc, value: 32000 }
+    - { limit_type: hard, limit_item: nproc, value: 32000 }
+
+- name: Configure sysctl for better performance
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+    - { key: 'net.ipv4.tcp_fin_timeout', value: '30' }
+    - { key: 'net.ipv4.tcp_keepalive_time', value: '1200' }
+    - { key: 'net.ipv4.tcp_max_syn_backlog', value: '8192' }
+    - { key: 'net.ipv4.tcp_tw_reuse', value: '1' }
+    - { key: 'vm.swappiness', value: '10' }
+    - { key: 'vm.dirty_ratio', value: '60' }
+    - { key: 'vm.dirty_background_ratio', value: '2' }
+    - { key: 'fs.file-max', value: '2097152' }

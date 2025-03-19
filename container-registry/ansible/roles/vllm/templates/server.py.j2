@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""
+vLLM API Server with FastAPI
+"""
+
+import argparse
+import json
+import os
+import time
+from typing import Dict, List, Optional, Union
+
+import torch
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from vllm import LLM, SamplingParams
+from prometheus_client import make_wsgi_app, Counter, Gauge, Histogram
+from wsgiref.simple_server import make_server
+import threading
+import psutil
+
+# Models for request/response
+class GenerationRequest(BaseModel):
+    prompt: str
+    max_tokens: int = Field(default=128)
+    temperature: float = Field(default=0.7)
+    top_p: float = Field(default=0.95)
+    top_k: int = Field(default=40)
+    presence_penalty: float = Field(default=0.0)
+    frequency_penalty: float = Field(default=0.0)
+    stop: Optional[Union[str, List[str]]] = Field(default=None)
+    stream: bool = Field(default=False)
+
+class TokenInfo(BaseModel):
+    id: int
+    text: str
+    logprob: Optional[float] = None
+
+class GenerationResponse(BaseModel):
+    text: str
+    tokens: List[TokenInfo] = []
+    finish_reason: str
+    usage: Dict[str, int]
+
+# Prometheus metrics
+REQUEST_COUNT = Counter("vllm_requests_total", "Total number of requests processed")
+REQUEST_TIME = Histogram("vllm_request_duration_seconds", "Time spent processing requests")
+GPU_MEMORY_USED = Gauge("vllm_gpu_memory_used_bytes", "GPU memory used in bytes")
+GPU_MEMORY_TOTAL = Gauge("vllm_gpu_memory_total_bytes", "Total GPU memory in bytes")
+CPU_USAGE = Gauge("vllm_cpu_usage_percent", "CPU usage percentage")
+MEMORY_USAGE = Gauge("vllm_memory_usage_bytes", "Memory usage in bytes")
+REQUESTS_IN_QUEUE = Gauge("vllm_requests_in_queue", "Number of requests in queue")
+
+# Create FastAPI app
+app = FastAPI(
+    title="vLLM API Server",
+    description="A high-performance inference server for LLMs using vLLM",
+    version="1.0.0",
+)
+
+# Global variables
+llm = None
+args = None
+
+@app.on_event("startup")
+async def startup_event():
+    global llm, args
+    parser = argparse.ArgumentParser(description="vLLM API Server")
+    parser.add_argument("--model", type=str, default="meta-llama/Llama-2-7b-chat-hf", 
+                        help="Model name to load")
+    parser.add_argument("--tensor-parallel-size", type=int, default=1,
+                        help="Tensor parallel size")
+    parser.add_argument("--gpu-memory-utilization", type=float, default=0.9,
+                        help="GPU memory utilization (0.0 to 1.0)")
+    parser.add_argument("--max-model-len", type=int, default=4096,
+                        help="Maximum model sequence length")
+    parser.add_argument("--quantization", type=str, default=None,
+                        choices=[None, "awq", "squeezellm"],
+                        help="Quantization method")
+    parser.add_argument("--port", type=int, default=8000,
+                        help="Port to run the server on")
+    
+    args = parser.parse_args()
+    
+    # Log startup
+    print(f"Starting vLLM with model: {args.model}")
+    print(f"Tensor parallel size: {args.tensor_parallel_size}")
+    print(f"GPU memory utilization: {args.gpu_memory_utilization}")
+    print(f"Quantization: {args.quantization}")
+    
+    # Initialize LLM
+    llm = LLM(
+        model=args.model,
+        tensor_parallel_size=args.tensor_parallel_size,
+        gpu_memory_utilization=args.gpu_memory_utilization,
+        max_model_len=args.max_model_len,
+        quantization=args.quantization,
+        trust_remote_code=True,
+    )
+    
+    # Start metrics collection in a background thread
+    threading.Thread(target=start_metrics_server, daemon=True).start()
+    threading.Thread(target=collect_metrics, daemon=True).start()
+
+def start_metrics_server():
+    """Start a WSGI server to serve Prometheus metrics."""
+    metrics_app = make_wsgi_app()
+    httpd = make_server('', 9100, metrics_app)
+    httpd.serve_forever()
+
+def collect_metrics():
+    """Collect system metrics periodically."""
+    while True:
+        try:
+            # GPU memory
+            if torch.cuda.is_available():
+                for i in range(torch.cuda.device_count()):
+                    GPU_MEMORY_USED.set(torch.cuda.memory_allocated(i))
+                    GPU_MEMORY_TOTAL.set(torch.cuda.get_device_properties(i).total_memory)
+            
+            # CPU and memory usage
+            CPU_USAGE.set(psutil.cpu_percent())
+            MEMORY_USAGE.set(psutil.virtual_memory().used)
+            
+            # Sleep for 5 seconds before collecting metrics again
+            time.sleep(5)
+        except Exception as e:
+            print(f"Error collecting metrics: {e}")
+            time.sleep(10)
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "model": args.model}
+
+@app.get("/")
+async def root():
+    """Root endpoint with basic info."""
+    return {
+        "name": "vLLM API Server",
+        "model": args.model,
+        "version": "1.0.0",
+    }
+
+@app.post("/generate", response_model=GenerationResponse)
+async def generate(request: GenerationRequest, background_tasks: BackgroundTasks):
+    """Generate text from a prompt."""
+    global llm
+    
+    REQUEST_COUNT.inc()
+    REQUESTS_IN_QUEUE.inc()
+    start_time = time.time()
+    
+    try:
+        sampling_params = SamplingParams(
+            max_tokens=request.max_tokens,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            top_k=request.top_k,
+            presence_penalty=request.presence_penalty,
+            frequency_penalty=request.frequency_penalty,
+            stop=request.stop,
+        )
+        
+        # Generate
+        outputs = llm.generate([request.prompt], sampling_params)
+        
+        # Process response
+        generated_text = outputs[0].outputs[0].text
+        tokens = []
+        
+        # Create response
+        response = GenerationResponse(
+            text=generated_text,
+            tokens=tokens,
+            finish_reason="stop" if outputs[0].outputs[0].finish_reason == "stop" else "length",
+            usage={
+                "prompt_tokens": len(outputs[0].prompt_token_ids),
+                "completion_tokens": len(outputs[0].outputs[0].token_ids),
+                "total_tokens": len(outputs[0].prompt_token_ids) + len(outputs[0].outputs[0].token_ids),
+            }
+        )
+        
+        end_time = time.time()
+        REQUEST_TIME.observe(end_time - start_time)
+        
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        REQUESTS_IN_QUEUE.dec()
+
+if __name__ == "__main__":
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, log_level="info")

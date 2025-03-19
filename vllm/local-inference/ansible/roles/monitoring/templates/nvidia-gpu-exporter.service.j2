@@ -1,0 +1,11 @@
+[Unit]
+Description=NVIDIA GPU Metrics Exporter for Prometheus
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/inference/monitoring/nvidia-gpu-exporter.sh
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

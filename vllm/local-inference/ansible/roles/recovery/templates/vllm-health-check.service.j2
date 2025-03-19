@@ -1,0 +1,11 @@
+[Unit]
+Description=vLLM Health Check and Auto-Recovery Service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/inference/scripts/check-vllm-health.sh
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

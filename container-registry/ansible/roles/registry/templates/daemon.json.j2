@@ -1,0 +1,10 @@
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m",
+    "max-file": "3"
+  },
+  "storage-driver": "overlay2",
+  "experimental": false,
+  "insecure-registries": ["{{ ansible_hostname }}:{{ registry_port }}"]
+}

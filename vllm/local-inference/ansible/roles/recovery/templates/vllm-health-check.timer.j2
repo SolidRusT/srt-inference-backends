@@ -1,0 +1,10 @@
+[Unit]
+Description=Run vLLM Health Check Periodically
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

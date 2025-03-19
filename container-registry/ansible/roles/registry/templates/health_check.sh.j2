@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Registry health check script
+REGISTRY_HOST="{{ ansible_hostname }}"
+REGISTRY_PORT="{{ registry_port }}"
+REGISTRY_USER="{{ registry_auth_username }}"
+REGISTRY_PASS="{{ registry_auth_password }}"
+
+# Function to send notification on failure
+notify() {
+  echo "ERROR: Registry health check failed - $1"
+  # Add notification commands here (e.g., email, Slack webhook, etc.)
+}
+
+# Check if registry container is running
+if ! docker ps | grep -q {{ registry_container_name }}; then
+  notify "Registry container is not running"
+  docker start {{ registry_container_name }} || true
+  exit 1
+fi
+
+# Check if registry is responding
+if ! curl -f -s -k -m 10 https://${REGISTRY_HOST}:${REGISTRY_PORT}/v2/ -u "${REGISTRY_USER}:${REGISTRY_PASS}" > /dev/null; then
+  notify "Registry API is not responding"
+  docker restart {{ registry_container_name }} || true
+  exit 1
+fi
+
+# Check disk space for registry storage
+DISK_USAGE=$(df -h {{ registry_storage_path }} | awk 'NR==2 {print $5}' | sed 's/%//')
+if [ "$DISK_USAGE" -gt 85 ]; then
+  notify "Registry storage is at ${DISK_USAGE}% capacity"
+  # If garbage collection is enabled, run it now
+  if [ {{ registry_garbage_collection_enabled | lower }} = "true" ]; then
+    docker exec {{ registry_container_name }} bin/registry garbage-collect /etc/docker/registry/config.yml
+  fi
+fi
+
+exit 0

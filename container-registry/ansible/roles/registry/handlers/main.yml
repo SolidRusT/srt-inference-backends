@@ -1,0 +1,8 @@
+---
+# Registry handlers
+
+- name: Restart registry container
+  docker_container:
+    name: "{{ registry_container_name }}"
+    state: started
+    restart: yes

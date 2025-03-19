@@ -1,0 +1,25 @@
+---
+all:
+  children:
+    inference_nodes:
+      hosts:
+        erebus:
+           ansible_host: 10.10.75.14
+           ansible_user: shaun
+        thanatos:
+           ansible_host: 10.10.75.15
+           ansible_user: shaun
+        zelus:
+           ansible_host: 10.10.75.16
+           ansible_user: shaun
+        #orpheus:
+        #   ansible_host: 10.10.75.17
+        #   ansible_user: shaun
+        kratos:
+           ansible_host: 10.10.75.18
+           ansible_user: shaun
+        nyx:
+           ansible_host: 10.10.75.19
+           ansible_user: shaun
+      vars:
+        ansible_python_interpreter: /usr/bin/python3

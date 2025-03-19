@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""
+vLLM API Test Script
+
+This script tests the vLLM API by sending a simple completion request
+and measuring response time.
+"""
+
+import argparse
+import json
+import requests
+import time
+import sys
+
+def test_vllm_api(host, port, model):
+    """Test the vLLM API with a simple request."""
+    url = f"http://{host}:{port}/v1/completions"
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    data = {
+        "model": model,
+        "prompt": "Write a poem about artificial intelligence:",
+        "max_tokens": 100,
+        "temperature": 0.7,
+        "stop": ["###"]
+    }
+    
+    print(f"Testing vLLM API at {url}")
+    print(f"Using model: {model}")
+    print("Sending request...")
+    
+    start_time = time.time()
+    
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(data), timeout=30)
+        response.raise_for_status()
+        
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        
+        result = response.json()
+        
+        print("\nResponse received in {:.2f} seconds".format(elapsed_time))
+        print("\nResponse:")
+        print(json.dumps(result, indent=2))
+        
+        if "choices" in result and len(result["choices"]) > 0:
+            text = result["choices"][0].get("text", "")
+            print("\nGenerated text:")
+            print(text)
+        
+        return True
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        return False
+
+def main():
+    parser = argparse.ArgumentParser(description="Test vLLM API")
+    parser.add_argument("--host", default="localhost", help="vLLM server hostname")
+    parser.add_argument("--port", type=int, default=8000, help="vLLM server port")
+    parser.add_argument("--model", default="", help="Model name (leave empty to use server default)")
+    
+    args = parser.parse_args()
+    
+    success = test_vllm_api(args.host, args.port, args.model)
+    
+    if success:
+        print("\nTest completed successfully.")
+        sys.exit(0)
+    else:
+        print("\nTest failed.")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

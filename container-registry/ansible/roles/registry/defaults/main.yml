@@ -1,0 +1,31 @@
+---
+# Registry role defaults
+
+# Registry configuration
+registry_port: 5000
+registry_storage_path: /var/lib/registry
+registry_container_name: registry
+registry_image: registry:2
+
+# TLS configuration
+registry_enable_tls: true
+registry_cert_path: /etc/registry/certs
+registry_cert_filename: registry.crt
+registry_key_filename: registry.key
+
+# Authentication
+registry_enable_auth: true
+registry_auth_path: /etc/registry/auth
+registry_auth_username: admin
+registry_auth_password: "{{ registry_default_password | default('changeme') }}"
+
+# Access control
+registry_allow_cidr:
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+
+# Data retention
+registry_storage_delete_enabled: true
+registry_garbage_collection_enabled: true
+registry_garbage_collection_cron: "0 2 * * 0"  # Weekly at 2am on Sunday

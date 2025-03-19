@@ -1,0 +1,15 @@
+# Template for vault.yml - Copy to vault.yml and encrypt with ansible-vault
+---
+# Registry authentication
+registry_auth_username: admin
+registry_auth_password: changeme  # Use a strong password here
+
+# Hugging Face token for accessing gated models
+huggingface_token: ""  # Your Hugging Face token
+
+# Monitoring notification settings
+smtp_server: smtp.example.com
+smtp_port: 587
+smtp_username: alerts@example.com
+smtp_password: changeme
+notification_email: admin@example.com

@@ -1,0 +1,8 @@
+---
+# vLLM handlers
+
+- name: Restart vLLM container
+  docker_container:
+    name: "{{ vllm_container_name }}"
+    state: started
+    restart: yes

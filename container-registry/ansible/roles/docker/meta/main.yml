@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  author: Your Name
+  description: Docker installation and configuration role
+  license: MIT
+  min_ansible_version: 2.9
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - docker
+    - container
+
+dependencies: []

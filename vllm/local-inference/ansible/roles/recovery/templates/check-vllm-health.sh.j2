@@ -1,0 +1,54 @@
+#!/bin/bash
+# vLLM Health Check Script
+# This script checks the health of the vLLM service and recovers it if needed
+
+LOG_FILE="/opt/inference/logs/vllm-health_$(date +%Y%m%d).log"
+
+log() {
+    echo "[$(date +%Y-%m-%d\ %H:%M:%S)] $1" | tee -a "$LOG_FILE"
+}
+
+# Check if vLLM container is running
+if ! docker ps | grep -q vllm-server; then
+    log "vLLM container is not running, initiating recovery..."
+    /opt/inference/scripts/recovery.sh
+    exit 1
+fi
+
+# Check API health
+VLLM_PORT="{{ vllm_port | default('8081') }}"
+HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${VLLM_PORT}/v1/models)
+
+if [ "$HEALTH_CHECK" != "200" ]; then
+    log "vLLM API health check failed (HTTP code: $HEALTH_CHECK), initiating recovery..."
+    /opt/inference/scripts/recovery.sh
+    exit 1
+fi
+
+# Check if GPU is being used by vLLM
+CONTAINER_ID=$(docker ps -q --filter name=vllm-server)
+if [ -n "$CONTAINER_ID" ]; then
+    GPU_USAGE=$(docker exec $CONTAINER_ID nvidia-smi --query-compute-apps=pid --format=csv,noheader,nounits 2>/dev/null | wc -l)
+    
+    if [ "$GPU_USAGE" -lt 1 ]; then
+        log "vLLM is not using GPU, initiating recovery..."
+        /opt/inference/scripts/recovery.sh
+        exit 1
+    fi
+else
+    log "vLLM container not found, initiating recovery..."
+    /opt/inference/scripts/recovery.sh
+    exit 1
+fi
+
+# Check memory usage
+MEMORY_USAGE=$(docker stats --no-stream --format "{{.MemPerc}}" $CONTAINER_ID | sed 's/%//')
+if (( $(echo "$MEMORY_USAGE < 5.0" | bc -l) )); then
+    log "vLLM memory usage is too low (${MEMORY_USAGE}%), initiating recovery..."
+    /opt/inference/scripts/recovery.sh
+    exit 1
+fi
+
+# Everything seems to be working
+log "vLLM health check passed"
+exit 0

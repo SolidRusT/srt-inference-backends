@@ -1,0 +1,11 @@
+[Unit]
+Description=vLLM Metrics Collection Service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/inference/monitoring/vllm-metrics.sh
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

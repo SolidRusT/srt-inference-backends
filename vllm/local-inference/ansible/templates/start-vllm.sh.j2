@@ -1,0 +1,58 @@
+#!/bin/bash
+# vLLM startup script
+
+# Log file
+LOG_FILE="/opt/inference/logs/vllm_$(date +%Y%m%d_%H%M%S).log"
+
+# Create log directory if it doesn't exist
+mkdir -p /opt/inference/logs
+
+# Model configuration
+MODEL_ID="{{ vllm_model | default('solidrust/Hermes-3-Llama-3.1-8B-AWQ') }}"
+MODEL_LENGTH="{{ vllm_max_model_len | default('14992') }}"
+GPU_MEMORY_UTILIZATION="{{ vllm_gpu_memory | default('0.98') }}"
+TENSOR_PARALLEL_SIZE="{{ vllm_tensor_parallel_size | default('1') }}"
+MAX_NUM_SEQS="{{ vllm_max_num_seqs | default('64') }}"
+VLLM_PORT="{{ vllm_port | default('8081') }}"
+VLLM_LOGGING_LEVEL="{{ vllm_logging_level | default('DEBUG') }}"
+IMAGE_TAG="{{ vllm_image_tag | default('latest') }}"
+TOOL_CALL_PARSER="{{ vllm_tool_call_parser | default('hermes') }}"
+
+# Log startup information
+echo "Starting vLLM server at $(date)" | tee -a ${LOG_FILE}
+echo "Model: ${MODEL_ID}" | tee -a ${LOG_FILE}
+echo "Port: ${VLLM_PORT}" | tee -a ${LOG_FILE}
+echo "Max model length: ${MODEL_LENGTH}" | tee -a ${LOG_FILE}
+echo "GPU memory utilization: ${GPU_MEMORY_UTILIZATION}" | tee -a ${LOG_FILE}
+echo "Tensor parallel size: ${TENSOR_PARALLEL_SIZE}" | tee -a ${LOG_FILE}
+echo "Tool call parser: ${TOOL_CALL_PARSER}" | tee -a ${LOG_FILE}
+echo "Max number of sequences: ${MAX_NUM_SEQS}" | tee -a ${LOG_FILE}
+
+# Run the vLLM server in Docker
+docker run --gpus all \
+  --privileged \
+  --restart always \
+  -p ${VLLM_PORT}:8000 \
+  -v /home/{{ ansible_user }}/.cache/huggingface:/root/.cache/huggingface \
+  -v /opt/inference/cache:/data \
+  --env "VLLM_LOGGING_LEVEL=${VLLM_LOGGING_LEVEL}" \
+  {% if huggingface_token is defined %}\
+  --env "HUGGING_FACE_HUB_TOKEN={{ huggingface_token }}" \
+  {% endif %}\
+  --ipc=host \
+  --pull always \
+  --name vllm-server \
+  -d \
+  vllm/vllm-openai:${IMAGE_TAG} \
+  --model ${MODEL_ID} \
+  --tokenizer ${MODEL_ID} \
+  --trust-remote-code \
+  --dtype auto \
+  --device auto \
+  --max-model-len ${MODEL_LENGTH} \
+  --tool-call-parser ${TOOL_CALL_PARSER} \
+  --gpu-memory-utilization ${GPU_MEMORY_UTILIZATION} \
+  --tensor-parallel-size ${TENSOR_PARALLEL_SIZE} \
+  --max-num-seqs ${MAX_NUM_SEQS} 2>&1 | tee -a ${LOG_FILE}
+
+echo "vLLM server started at $(date)" | tee -a ${LOG_FILE}

@@ -1,0 +1,10 @@
+---
+# Backup playbook for inference nodes
+
+- name: Setup Backup System
+  hosts: inference_nodes
+  become: yes
+  tags:
+    - backup
+  roles:
+    - backup

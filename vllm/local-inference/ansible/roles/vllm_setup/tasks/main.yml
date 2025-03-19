@@ -1,0 +1,79 @@
+---
+- name: Create vLLM service directory
+  file:
+    path: /opt/inference/vllm
+    state: directory
+    mode: '0755'
+
+- name: Deploy vLLM startup script
+  template:
+    src: start-vllm.sh.j2
+    dest: /opt/inference/vllm/start-vllm.sh
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy vLLM service file
+  template:
+    src: vllm.service.j2
+    dest: /etc/systemd/system/vllm.service
+    owner: root
+    group: root
+    mode: '0644'
+  register: vllm_service_configured
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+  when: vllm_service_configured.changed
+
+- name: Enable vLLM service
+  systemd:
+    name: vllm
+    enabled: yes
+  when: vllm_service_configured.changed
+
+- name: Create vLLM cache directory
+  file:
+    path: /opt/inference/cache
+    state: directory
+    mode: '0755'
+
+- name: Create vLLM logs directory
+  file:
+    path: /opt/inference/logs
+    state: directory
+    mode: '0755'
+
+- name: Install Python dependencies for testing
+  apt:
+    name:
+      - python3-pip
+      - python3-requests
+    state: present
+
+- name: Deploy vLLM test scripts
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - { src: 'test-vllm.py.j2', dest: '/opt/inference/vllm/test-vllm.py' }
+    - { src: 'advanced-test-vllm.py.j2', dest: '/opt/inference/vllm/advanced-test-vllm.py' }
+    - { src: 'test-chat.sh.j2', dest: '/opt/inference/vllm/test-chat.sh' }
+
+- name: Deploy vLLM parameter determination script
+  template:
+    src: determine-vllm-params.sh.j2
+    dest: /opt/inference/vllm/determine-vllm-params.sh
+    owner: root
+    group: root
+    mode: '0755'
+  
+- name: Run vLLM parameter determination script (no output)
+  shell: /opt/inference/vllm/determine-vllm-params.sh > /dev/null 2>&1
+  args:
+    creates: /opt/inference/vllm/recommended_params.txt
+  failed_when: false

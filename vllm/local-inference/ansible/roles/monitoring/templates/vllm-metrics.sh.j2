@@ -1,0 +1,92 @@
+#!/bin/bash
+# vLLM Metrics Collector for Prometheus Node Exporter
+
+OUTPUT_FILE="/var/lib/prometheus/node-exporter/vllm.prom"
+TEMP_FILE=$(mktemp)
+
+# Exit if docker is not running
+if ! systemctl is-active --quiet docker; then
+    echo "Docker is not running, exiting"
+    exit 1
+fi
+
+# Check if vLLM container is running
+VLLM_CONTAINER=$(docker ps -q --filter name=vllm-server)
+if [ -z "$VLLM_CONTAINER" ]; then
+    # vLLM not running, write zeros
+    cat > $TEMP_FILE << EOF
+# HELP vllm_running Whether vLLM server is running (1=running, 0=not running)
+# TYPE vllm_running gauge
+vllm_running 0
+
+# HELP vllm_container_cpu_percent CPU usage percentage of vLLM container
+# TYPE vllm_container_cpu_percent gauge
+vllm_container_cpu_percent 0
+
+# HELP vllm_container_memory_bytes Memory usage of vLLM container in bytes
+# TYPE vllm_container_memory_bytes gauge
+vllm_container_memory_bytes 0
+
+# HELP vllm_container_network_rx_bytes Network received bytes by vLLM container
+# TYPE vllm_container_network_rx_bytes gauge
+vllm_container_network_rx_bytes 0
+
+# HELP vllm_container_network_tx_bytes Network transmitted bytes by vLLM container
+# TYPE vllm_container_network_tx_bytes gauge
+vllm_container_network_tx_bytes 0
+EOF
+else
+    # Get container stats in JSON format
+    STATS=$(docker stats --no-stream --format "{{json .}}" $VLLM_CONTAINER)
+
+    # Parse CPU usage
+    CPU_PERCENT=$(echo $STATS | jq -r '.CPUPerc' | sed 's/%//')
+
+    # Parse memory usage
+    MEM_USAGE=$(echo $STATS | jq -r '.MemUsage' | awk '{print $1}')
+    MEM_UNIT=$(echo $STATS | jq -r '.MemUsage' | awk '{print $2}')
+    
+    # Convert to bytes
+    case $MEM_UNIT in
+        kB) MEM_BYTES=$(echo "$MEM_USAGE * 1024" | bc) ;;
+        MB) MEM_BYTES=$(echo "$MEM_USAGE * 1024 * 1024" | bc) ;;
+        GB) MEM_BYTES=$(echo "$MEM_USAGE * 1024 * 1024 * 1024" | bc) ;;
+        *) MEM_BYTES=$MEM_USAGE ;;
+    esac
+
+    # Get network stats
+    NET_STATS=$(docker exec $VLLM_CONTAINER cat /proc/net/dev | grep eth0)
+    if [ -n "$NET_STATS" ]; then
+        NET_RX=$(echo $NET_STATS | awk '{print $2}')
+        NET_TX=$(echo $NET_STATS | awk '{print $10}')
+    else
+        NET_RX=0
+        NET_TX=0
+    fi
+
+    # Write metrics
+    cat > $TEMP_FILE << EOF
+# HELP vllm_running Whether vLLM server is running (1=running, 0=not running)
+# TYPE vllm_running gauge
+vllm_running 1
+
+# HELP vllm_container_cpu_percent CPU usage percentage of vLLM container
+# TYPE vllm_container_cpu_percent gauge
+vllm_container_cpu_percent $CPU_PERCENT
+
+# HELP vllm_container_memory_bytes Memory usage of vLLM container in bytes
+# TYPE vllm_container_memory_bytes gauge
+vllm_container_memory_bytes $MEM_BYTES
+
+# HELP vllm_container_network_rx_bytes Network received bytes by vLLM container
+# TYPE vllm_container_network_rx_bytes gauge
+vllm_container_network_rx_bytes $NET_RX
+
+# HELP vllm_container_network_tx_bytes Network transmitted bytes by vLLM container
+# TYPE vllm_container_network_tx_bytes gauge
+vllm_container_network_tx_bytes $NET_TX
+EOF
+fi
+
+# Move temp file to output
+mv $TEMP_FILE $OUTPUT_FILE

@@ -1,0 +1,51 @@
+---
+- name: Create backup directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/inference/backups
+    - /opt/inference/backups/config
+    - /opt/inference/backups/logs
+
+- name: Install backup utilities
+  apt:
+    name:
+      - rsync
+      - gzip
+      - tar
+    state: present
+
+- name: Deploy backup script
+  template:
+    src: backup-inference.sh.j2
+    dest: /opt/inference/backups/backup-inference.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Deploy backup service file
+  template:
+    src: inference-backup.service.j2
+    dest: /etc/systemd/system/inference-backup.service
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Deploy backup timer file
+  template:
+    src: inference-backup.timer.j2
+    dest: /etc/systemd/system/inference-backup.timer
+    mode: '0644'
+    owner: root
+    group: root
+  register: backup_timer
+
+- name: Enable and start backup timer
+  systemd:
+    name: inference-backup.timer
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  when: backup_timer.changed

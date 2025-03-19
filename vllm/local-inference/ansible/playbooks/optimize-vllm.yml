@@ -1,0 +1,49 @@
+---
+# Playbook for optimizing vLLM parameters based on hardware
+
+- name: Optimize vLLM parameters for hardware
+  hosts: inference_nodes
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Create vLLM directory
+      file:
+        path: /opt/inference/vllm
+        state: directory
+        mode: '0755'
+
+    - name: Create parameter determination script
+      template:
+        src: ../templates/determine-vllm-params.sh.j2
+        dest: /opt/inference/vllm/determine-vllm-params.sh
+        mode: '0755'
+
+    - name: Run parameter determination script
+      shell: /opt/inference/vllm/determine-vllm-params.sh
+      register: param_output
+
+    - name: Show parameter recommendations
+      debug:
+        msg: "{{ param_output.stdout_lines }}"
+
+    - name: Check if vLLM server is running
+      shell: docker ps -a | grep vllm-server
+      register: vllm_status
+      failed_when: false
+
+    - name: Fetch recommended parameters
+      slurp:
+        src: /opt/inference/vllm/recommended_params.txt
+      register: recommended_params
+
+    - name: Display recommendations for manual update
+      debug:
+        msg:
+          - "-----------------------------------------------------------------------------"
+          - "Recommended vLLM parameters for {{ inventory_hostname }} based on hardware:"
+          - "{{ recommended_params['content'] | b64decode }}"
+          - "-----------------------------------------------------------------------------"
+          - "To apply these recommendations, update ansible/group_vars/all.yml or use the"
+          - "host-specific variables in your inventory file, then run:"
+          - "ansible-playbook -i inventory.yml site.yml --tags vllm"
+          - "-----------------------------------------------------------------------------"

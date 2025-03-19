@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Registry status script
+REGISTRY_HOST="{{ ansible_hostname }}"
+REGISTRY_PORT="{{ registry_port }}"
+REGISTRY_USER="{{ registry_auth_username }}"
+REGISTRY_PASS="{{ registry_auth_password }}"
+
+echo "===== Docker Registry Status ====="
+echo "Host: ${REGISTRY_HOST}:${REGISTRY_PORT}"
+
+# Check container status
+echo -n "Container Status: "
+if docker ps | grep -q {{ registry_container_name }}; then
+  echo "Running"
+else
+  echo "Stopped"
+  exit 1
+fi
+
+# Check registry API
+echo -n "Registry API: "
+if curl -f -s -k -m 5 https://${REGISTRY_HOST}:${REGISTRY_PORT}/v2/ -u "${REGISTRY_USER}:${REGISTRY_PASS}" > /dev/null; then
+  echo "Responding"
+else
+  echo "Not Responding"
+  exit 1
+fi
+
+# Get disk usage
+DISK_USAGE=$(df -h {{ registry_storage_path }} | awk 'NR==2 {print $5}')
+echo "Disk Usage: ${DISK_USAGE}"
+
+# Count repositories and tags
+echo -n "Repositories: "
+REPOS=$(curl -s -k https://${REGISTRY_HOST}:${REGISTRY_PORT}/v2/_catalog -u "${REGISTRY_USER}:${REGISTRY_PASS}" | jq -r '.repositories[]' 2>/dev/null | wc -l)
+echo "${REPOS}"
+
+# Display container logs
+echo "Recent Logs:"
+docker logs --tail 5 {{ registry_container_name }}
+
+echo "===== End of Status Report ====="

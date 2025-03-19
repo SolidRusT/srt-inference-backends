@@ -1,0 +1,25 @@
+---
+# Recovery playbook for inference nodes
+
+- name: Deploy Recovery Tools
+  hosts: inference_nodes
+  become: yes
+  tags:
+    - recovery
+  roles:
+    - recovery
+
+- name: Execute Recovery Procedure
+  hosts: inference_nodes
+  become: yes
+  tags:
+    - execute_recovery
+  tasks:
+    - name: Execute recovery script
+      command: /opt/inference/scripts/recovery.sh
+      register: recovery_output
+      changed_when: true
+
+    - name: Display recovery output
+      debug:
+        var: recovery_output.stdout_lines

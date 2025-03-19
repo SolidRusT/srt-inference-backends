@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# vLLM status script
+VLLM_HOST="localhost"
+VLLM_PORT="{{ vllm_http_port }}"
+
+echo "===== vLLM Server Status ====="
+echo "Host: ${VLLM_HOST}:${VLLM_PORT}"
+
+# Check container status
+echo -n "Container Status: "
+if docker ps | grep -q {{ vllm_container_name }}; then
+  echo "Running"
+else
+  echo "Stopped"
+  exit 1
+fi
+
+# Check API health
+echo -n "API Health: "
+if HEALTH_RESPONSE=$(curl -s "http://${VLLM_HOST}:${VLLM_PORT}/health"); then
+  echo "Healthy"
+  # Extract model info
+  MODEL=$(echo $HEALTH_RESPONSE | grep -o '"model":"[^"]*' | sed 's/"model":"//g')
+  echo "Model: $MODEL"
+else
+  echo "Unhealthy"
+  exit 1
+fi
+
+# Get GPU stats if NVIDIA tools are available
+if command -v nvidia-smi &> /dev/null; then
+  echo "GPU Information:"
+  GPU_UTIL=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits)
+  GPU_MEM=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits)
+  GPU_TOTAL=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits)
+  
+  echo "  GPU Utilization: ${GPU_UTIL}%"
+  echo "  GPU Memory: ${GPU_MEM} MiB / ${GPU_TOTAL} MiB"
+fi
+
+# Display container logs
+echo "Recent Logs:"
+docker logs --tail 5 {{ vllm_container_name }}
+
+echo "===== End of Status Report ====="

@@ -1,0 +1,38 @@
+#!/bin/bash
+
+set -e
+
+# Default values
+MODEL_NAME=${MODEL_NAME:-"meta-llama/Llama-2-7b-chat-hf"}
+TP_SIZE=${TP_SIZE:-1}
+GPU_MEM_UTIL=${GPU_MEM_UTIL:-0.9}
+MAX_MODEL_LEN=${MAX_MODEL_LEN:-4096}
+QUANTIZATION=${QUANTIZATION:-"none"}
+
+# Check for required Hugging Face token for restricted models
+if [[ $MODEL_NAME == *"meta-llama"* || $MODEL_NAME == *"mistral"* ]] && [ -z "$HF_TOKEN" ]; then
+  echo "Warning: Using a gated model but HF_TOKEN is not set. Download may fail."
+fi
+
+# Download and prepare model
+if [ ! -d "/app/models/${MODEL_NAME##*/}" ]; then
+  echo "Downloading model: $MODEL_NAME"
+  python3 /app/download_model.py --model_name "$MODEL_NAME" --hf_token "$HF_TOKEN"
+fi
+
+# Determine command line arguments for vLLM
+QUANT_ARG=""
+if [ "$QUANTIZATION" == "awq" ]; then
+  QUANT_ARG="--quantization awq"
+elif [ "$QUANTIZATION" == "squeezellm" ]; then
+  QUANT_ARG="--quantization squeezellm"
+fi
+
+# Start the server
+echo "Starting vLLM server with model: $MODEL_NAME"
+python3 -m server \
+  --model "$MODEL_NAME" \
+  --tensor-parallel-size "$TP_SIZE" \
+  --gpu-memory-utilization "$GPU_MEM_UTIL" \
+  --max-model-len "$MAX_MODEL_LEN" \
+  $QUANT_ARG

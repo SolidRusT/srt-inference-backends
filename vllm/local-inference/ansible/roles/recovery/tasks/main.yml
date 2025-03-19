@@ -1,0 +1,103 @@
+---
+- name: Check if vLLM service is running
+  systemd:
+    name: vllm
+  register: vllm_service_status
+  ignore_errors: true
+
+- name: Recovery - Reset vLLM service
+  block:
+    - name: Stop vLLM service
+      systemd:
+        name: vllm
+        state: stopped
+      ignore_errors: true
+
+    - name: Stop and remove vLLM container
+      command: docker rm -f vllm-server
+      ignore_errors: true
+      changed_when: true
+
+    - name: Restart Docker service
+      systemd:
+        name: docker
+        state: restarted
+      ignore_errors: true
+
+    - name: Pull latest vLLM Docker image
+      command: docker pull ghcr.io/mistralai/vllm:latest
+      ignore_errors: true
+      changed_when: true
+
+    - name: Start vLLM service
+      systemd:
+        name: vllm
+        state: started
+      ignore_errors: true
+  when: vllm_service_status.failed or (vllm_service_status.status is defined and vllm_service_status.status.ActiveState != "active")
+
+- name: Verify NVIDIA driver status
+  command: nvidia-smi
+  register: nvidia_smi_output
+  ignore_errors: true
+  changed_when: false
+
+- name: Recovery - Reload NVIDIA drivers
+  block:
+    - name: Unload NVIDIA modules
+      command: rmmod nvidia_drm nvidia_modeset nvidia
+      ignore_errors: true
+      changed_when: true
+
+    - name: Reload NVIDIA modules
+      command: modprobe nvidia
+      ignore_errors: true
+      changed_when: true
+
+    - name: Check NVIDIA driver status after recovery
+      command: nvidia-smi
+      register: nvidia_smi_recovery
+      ignore_errors: true
+      changed_when: false
+  when: nvidia_smi_output.rc != 0
+
+- name: Deploy recovery script
+  template:
+    src: recovery.sh.j2
+    dest: /opt/inference/scripts/recovery.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Create script to check vLLM health
+  template:
+    src: check-vllm-health.sh.j2
+    dest: /opt/inference/scripts/check-vllm-health.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Deploy auto-recovery service
+  template:
+    src: vllm-health-check.service.j2
+    dest: /etc/systemd/system/vllm-health-check.service
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Deploy auto-recovery timer
+  template:
+    src: vllm-health-check.timer.j2
+    dest: /etc/systemd/system/vllm-health-check.timer
+    mode: '0644'
+    owner: root
+    group: root
+  register: recovery_timer
+
+- name: Enable and start recovery timer
+  systemd:
+    name: vllm-health-check.timer
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  when: recovery_timer.changed

@@ -1,0 +1,63 @@
+#!/bin/bash
+# NVIDIA GPU Metrics Exporter for Prometheus Node Exporter
+
+OUTPUT_FILE="/var/lib/prometheus/node-exporter/nvidia_gpu.prom"
+TEMP_FILE=$(mktemp)
+
+# Exit if nvidia-smi is not available
+if ! command -v nvidia-smi &> /dev/null; then
+    echo "nvidia-smi not found, exiting"
+    exit 1
+fi
+
+# Get GPU count
+GPU_COUNT=$(nvidia-smi --query-gpu=count --format=csv,noheader,nounits)
+
+# Function to create metrics
+create_metrics() {
+    echo "# HELP nvidia_gpu_power_watts Power usage of the GPU in Watts" > $TEMP_FILE
+    echo "# TYPE nvidia_gpu_power_watts gauge" >> $TEMP_FILE
+    nvidia-smi --query-gpu=index,power.draw --format=csv,noheader,nounits | while IFS=", " read -r gpu_id power; do
+        echo "nvidia_gpu_power_watts{gpu=\"$gpu_id\"} $power" >> $TEMP_FILE
+    done
+
+    echo "# HELP nvidia_gpu_temperature_celsius GPU temperature in degrees Celsius" >> $TEMP_FILE
+    echo "# TYPE nvidia_gpu_temperature_celsius gauge" >> $TEMP_FILE
+    nvidia-smi --query-gpu=index,temperature.gpu --format=csv,noheader,nounits | while IFS=", " read -r gpu_id temp; do
+        echo "nvidia_gpu_temperature_celsius{gpu=\"$gpu_id\"} $temp" >> $TEMP_FILE
+    done
+
+    echo "# HELP nvidia_gpu_memory_used_bytes GPU memory used in bytes" >> $TEMP_FILE
+    echo "# TYPE nvidia_gpu_memory_used_bytes gauge" >> $TEMP_FILE
+    nvidia-smi --query-gpu=index,memory.used --format=csv,noheader,nounits | while IFS=", " read -r gpu_id memory; do
+        memory_bytes=$(($memory * 1024 * 1024))
+        echo "nvidia_gpu_memory_used_bytes{gpu=\"$gpu_id\"} $memory_bytes" >> $TEMP_FILE
+    done
+
+    echo "# HELP nvidia_gpu_memory_total_bytes GPU total memory in bytes" >> $TEMP_FILE
+    echo "# TYPE nvidia_gpu_memory_total_bytes gauge" >> $TEMP_FILE
+    nvidia-smi --query-gpu=index,memory.total --format=csv,noheader,nounits | while IFS=", " read -r gpu_id memory; do
+        memory_bytes=$(($memory * 1024 * 1024))
+        echo "nvidia_gpu_memory_total_bytes{gpu=\"$gpu_id\"} $memory_bytes" >> $TEMP_FILE
+    done
+
+    echo "# HELP nvidia_gpu_utilization_percent GPU utilization in percent" >> $TEMP_FILE
+    echo "# TYPE nvidia_gpu_utilization_percent gauge" >> $TEMP_FILE
+    nvidia-smi --query-gpu=index,utilization.gpu --format=csv,noheader,nounits | while IFS=", " read -r gpu_id utilization; do
+        echo "nvidia_gpu_utilization_percent{gpu=\"$gpu_id\"} $utilization" >> $TEMP_FILE
+    done
+
+    echo "# HELP nvidia_gpu_fan_speed_percent GPU fan speed in percent" >> $TEMP_FILE
+    echo "# TYPE nvidia_gpu_fan_speed_percent gauge" >> $TEMP_FILE
+    nvidia-smi --query-gpu=index,fan.speed --format=csv,noheader,nounits | while IFS=", " read -r gpu_id fan; do
+        echo "nvidia_gpu_fan_speed_percent{gpu=\"$gpu_id\"} $fan" >> $TEMP_FILE
+    done
+
+    echo "# HELP nvidia_gpu_count Number of GPUs" >> $TEMP_FILE
+    echo "# TYPE nvidia_gpu_count gauge" >> $TEMP_FILE
+    echo "nvidia_gpu_count $GPU_COUNT" >> $TEMP_FILE
+}
+
+# Create metrics and move to output file
+create_metrics
+mv $TEMP_FILE $OUTPUT_FILE
