@@ -12,9 +12,9 @@ all:
         zelus:
            ansible_host: 10.10.75.16
            ansible_user: shaun
-        #orpheus:
-        #   ansible_host: 10.10.75.17
-        #   ansible_user: shaun
+        orpheus:
+           ansible_host: 10.10.75.17
+           ansible_user: shaun
         kratos:
            ansible_host: 10.10.75.18
            ansible_user: shaun

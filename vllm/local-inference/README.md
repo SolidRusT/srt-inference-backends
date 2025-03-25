@@ -262,3 +262,12 @@ SERVERS=(erebus thanatos zelus kratos nyx)
 
 for server in ${SERVERS[@]}; do ssh -tq $server "sudo apt dist-upgrade -y"; done
 ```
+
+### UEFI boot
+
+From the [Debian Wiki](https://wiki.debian.org/SecureBoot#Adding_your_key_to_DKMS):
+
+```bash
+sudo mokutil --import /var/lib/dkms/mok.pub # prompts for one-time password
+sudo mokutil --list-new # recheck your key will be prompted on next boot
+```

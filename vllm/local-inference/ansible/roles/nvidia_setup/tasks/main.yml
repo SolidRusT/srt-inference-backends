@@ -70,11 +70,13 @@
   apt:
     name:
       - nvidia-driver
+      - nvidia-driver-cuda
       - firmware-misc-nonfree
       - cuda-toolkit
       - cuda
       - libnvidia-ml-dev
       - nvidia-container-toolkit
+      - firmware-misc-nonfree
     state: present
 
 - name: Generate machine owner key for secure boot
